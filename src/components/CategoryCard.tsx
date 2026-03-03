@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateWhatsAppLink, trackWhatsAppClick } from "@/lib/constants";
+import { getProductImage } from "@/lib/productImages";
 import { cn } from "@/lib/utils";
 
 interface CategoryCardProps {
@@ -47,7 +48,7 @@ export function CategoryCard({
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <img
-          src={image}
+          src={getProductImage(id) !== "/placeholder.svg" ? getProductImage(id) : image}
           alt={name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"

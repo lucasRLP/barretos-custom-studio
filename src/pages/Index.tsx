@@ -81,11 +81,11 @@ export default function Index() {
 
         <div className="container-custom py-20 md:py-28 lg:py-36 relative z-10">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight animate-slide-up">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight animate-slide-up text-white">
               Personalizados e uniformes com{" "}
-              <span className="text-secondary">padrão de fábrica.</span>
+              <span className="text-[hsl(47_93%_60%)]">padrão de fábrica.</span>
             </h1>
-            <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 animate-slide-up delay-100">
+            <p className="text-lg md:text-xl text-white/90 mb-8 animate-slide-up delay-100">
               Produção própria. Atendimento consultivo. Envio para todo o Brasil.
             </p>
 

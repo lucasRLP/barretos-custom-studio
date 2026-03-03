@@ -4,6 +4,7 @@ import { Menu, X, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { generateWhatsAppLink, trackWhatsAppClick } from "@/lib/constants";
+import logoBarretos from "@/assets/logo-barretos.png";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -28,15 +29,10 @@ export function Header() {
       {/* Rainbow bar */}
       <div className="rainbow-bar" />
       
-      <nav className="container-custom flex items-center justify-between py-4">
+      <nav className="container-custom flex items-center justify-between py-3">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-2xl font-extrabold tracking-tight text-foreground">
-            BARRETOS
-          </span>
-          <span className="text-xs font-medium text-muted-foreground hidden sm:block">
-            Confecção
-          </span>
+          <img src={logoBarretos} alt="Barretos Design Têxtil & Confecção" className="h-12 md:h-14 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}

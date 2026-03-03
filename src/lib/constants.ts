@@ -1,5 +1,5 @@
-// Configuração do WhatsApp - substitua pelo número real
-export const WHATSAPP_NUMBER = "5511999999999";
+// Configuração do WhatsApp
+export const WHATSAPP_NUMBER = "5521993652442";
 
 // Categorias de produtos
 export const CATEGORIES = [

@@ -38,23 +38,23 @@ export function Footer() {
               <span className="text-3xl font-extrabold tracking-tight">BARRETOS</span>
             </Link>
             <p className="text-primary-foreground/80 text-sm mb-6 max-w-sm">
-              Mais de 30 anos produzindo personalizados e uniformes com qualidade de fábrica. 
-              Atendimento consultivo e envio para todo o Brasil.
+              Fábrica de Confecção no Rio de Janeiro. Mais de 30 anos estampando e confeccionando 
+              personalizados e uniformes com qualidade. Enviamos para todo o Brasil.
             </p>
             
             {/* Contact Info */}
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-3 text-primary-foreground/80">
                 <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span>São Paulo, SP - Brasil</span>
+                <span>Rua Senador Nabuco 40, Vila Isabel, Rio de Janeiro - RJ</span>
               </div>
               <div className="flex items-center gap-3 text-primary-foreground/80">
                 <Phone className="h-4 w-4 flex-shrink-0" />
-                <span>(11) 99999-9999</span>
+                <span>(21) 99365-2442</span>
               </div>
               <div className="flex items-center gap-3 text-primary-foreground/80">
                 <Mail className="h-4 w-4 flex-shrink-0" />
-                <span>contato@barretosconfeccao.com.br</span>
+                <span>barretosuniformes@gmail.com</span>
               </div>
               <div className="flex items-center gap-3 text-primary-foreground/80">
                 <Clock className="h-4 w-4 flex-shrink-0" />
@@ -118,13 +118,15 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-primary-foreground/20 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-primary-foreground/60">
-            © {new Date().getFullYear()} Barreto's Confecção. Todos os direitos reservados.
+            © {new Date().getFullYear()} Barreto's Cia da Confecção. Todos os direitos reservados.
           </p>
           
           {/* Social Links */}
           <div className="flex items-center gap-4">
             <a
-              href="#"
+              href="https://www.instagram.com/barretosconfeccao/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
               aria-label="Instagram"
             >
