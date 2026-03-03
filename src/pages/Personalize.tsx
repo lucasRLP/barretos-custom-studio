@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
+import { PersonalizeApp } from "@/components/PersonalizeApp";
 import { generateWhatsAppLink, trackWhatsAppClick } from "@/lib/constants";
 import { 
   Sparkles, 
@@ -53,13 +54,13 @@ export default function Personalize() {
               Novo: Personalizador Online
             </div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 text-white">
               Personalize, pague e receba:
               <br />
-              <span className="text-secondary">do jeito certo e do seu jeito.</span>
+              <span className="text-[hsl(47_93%_60%)]">do jeito certo e do seu jeito.</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto">
               Escolha o produto, envie sua arte ou crie do zero, pague online 
               e receba em casa. Simples assim.
             </p>
@@ -70,7 +71,6 @@ export default function Personalize() {
                 size="xl" 
                 className="gap-2"
                 onClick={() => {
-                  // Scroll to app slot or trigger app open
                   const appSlot = document.getElementById("personalize-app-slot");
                   if (appSlot) {
                     appSlot.scrollIntoView({ behavior: "smooth" });
@@ -125,43 +125,19 @@ export default function Personalize() {
         </div>
       </section>
 
-      {/* App Slot - IMPORTANT: DO NOT REMOVE */}
+      {/* App Slot */}
       <section className="section-padding bg-muted/50">
         <div className="container-custom">
-          {/* 
-            =====================================================
-            SLOT PARA INTEGRAÇÃO DO APP DE PERSONALIZAÇÃO
-            
-            Este container é reservado para inserção do app.
-            O app será integrado posteriormente via:
-            - iframe embedado
-            - Web Component
-            - React component externo
-            
-            Mantenha o ID "personalize-app-slot" para referência.
-            =====================================================
-          */}
-          <div 
-            id="personalize-app-slot"
-            className="min-h-[600px] rounded-2xl border-2 border-dashed border-border bg-card flex items-center justify-center"
-          >
-            {/* Placeholder - será substituído pelo app real */}
-            <div className="text-center p-8">
-              <div className="w-20 h-20 rounded-full bg-secondary/10 flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="h-10 w-10 text-secondary" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">
-                Personalizador em breve
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                O app de personalização será carregado aqui. 
-                Enquanto isso, você pode solicitar orçamento via WhatsApp.
-              </p>
-              <Button variant="cta" onClick={handleWhatsAppClick} className="gap-2">
-                <Phone className="h-5 w-5" />
-                Solicitar orçamento personalizado
-              </Button>
-            </div>
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+              Monte seu pedido
+            </h2>
+            <p className="text-muted-foreground">
+              Escolha, personalize e envie seu pedido em poucos passos.
+            </p>
+          </div>
+          <div id="personalize-app-slot">
+            <PersonalizeApp />
           </div>
         </div>
       </section>
@@ -191,9 +167,8 @@ export default function Personalize() {
                   Como envio minha arte?
                 </h3>
                 <p className="text-muted-foreground">
-                  Você pode fazer upload da sua arte diretamente no personalizador. 
-                  Aceitamos formatos PNG, JPG e PDF. Para melhor qualidade, envie imagens 
-                  em alta resolução.
+                  Após preencher o personalizador, você será redirecionado ao nosso WhatsApp onde pode 
+                  enviar sua arte diretamente. Aceitamos PNG, JPG e PDF em alta resolução.
                 </p>
               </div>
               
