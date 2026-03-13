@@ -25,14 +25,14 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b border-border">
+    <header className="sticky top-0 z-50 w-full bg-[hsl(32_60%_95%)]/95 backdrop-blur supports-[backdrop-filter]:bg-[hsl(32_60%_95%)]/80 border-b border-border">
       {/* Rainbow bar */}
       <div className="rainbow-bar" />
       
       <nav className="container-custom flex items-center justify-between py-3">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <img src={logoBarretos} alt="Barretos Design Têxtil & Confecção" className="h-12 md:h-14 w-auto" />
+          <img src={logoBarretos} alt="Barretos Design Têxtil & Confecção" className="h-14 md:h-18 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}
