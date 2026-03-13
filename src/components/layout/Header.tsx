@@ -32,7 +32,7 @@ export function Header() {
       <nav className="container-custom flex items-center justify-between py-3">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <img src={logoBarretos} alt="Barretos Design Têxtil & Confecção" className="h-12 md:h-14 w-auto" />
+          <img src={logoBarretos} alt="Barretos Design Têxtil & Confecção" className="h-14 md:h-18 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}
