@@ -1,438 +1,1663 @@
-import { useState } from "react";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import { Button } from "@/components/ui/button";
-import { CATEGORIES, WHATSAPP_NUMBER, trackWhatsAppClick } from "@/lib/constants";
+import { WHATSAPP_NUMBER, trackWhatsAppClick } from "@/lib/constants";
 import { getProductImage } from "@/lib/productImages";
 import {
-  Sparkles,
-  Upload,
-  User,
-  Phone,
-  MessageCircle,
   ChevronLeft,
   ChevronRight,
-  Check,
-  ImageIcon,
+  ClipboardList,
+  MessageCircle,
+  Palette,
+  Shirt,
+  UserRound,
 } from "lucide-react";
 
-type Step = "product" | "customize" | "contact" | "confirm";
+const CANVAS_W = 900;
+const CANVAS_H = 900;
 
-interface OrderData {
-  categoryId: string;
-  categoryName: string;
-  quantity: string;
-  color: string;
-  size: string;
-  hasArt: boolean;
-  artDescription: string;
+type Side = "front" | "back";
+type StepId = "product" | "details" | "customize" | "contact";
+
+type TextDesignItem = {
+  id: string;
+  type: "text";
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  fontSize: number;
+  fill: string;
+  align: "left" | "center" | "right";
+  rotation: number;
+  fontFamily: string;
+};
+
+type ImageDesignItem = {
+  id: string;
+  type: "image";
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+};
+
+type DesignItem = TextDesignItem | ImageDesignItem;
+
+type CanvasNode = {
+  getClientRect: (config?: unknown) => { x: number; y: number; width: number; height: number };
+  x: (value?: number) => number;
+  y: (value?: number) => number;
+  scaleX: (value?: number) => number;
+  scaleY: (value?: number) => number;
+  width: (value?: number) => number;
+  height: (value?: number) => number;
+  rotation: (value?: number) => number;
+};
+
+type StageRefShape = {
+  findOne: (selector: string) => unknown;
+};
+
+type TransformerRefShape = {
+  nodes: (nodes: unknown[]) => void;
+  getLayer: () => { batchDraw: () => void } | null;
+};
+
+type ProductOption = {
+  id: string;
   name: string;
-  email: string;
-  phone: string;
-  city: string;
-  notes: string;
-}
+  subtitle: string;
+  unitPrice: number;
+  sizes: string[];
+  sides: Side[];
+  catalogImageId: string;
+};
 
-const STEPS: { id: Step; label: string; icon: React.ElementType }[] = [
-  { id: "product", label: "Produto", icon: Sparkles },
-  { id: "customize", label: "Personalizar", icon: ImageIcon },
-  { id: "contact", label: "Seus Dados", icon: User },
-  { id: "confirm", label: "Confirmar", icon: Check },
+type PrintProfilesBySide = Record<
+  Side,
+  Record<string, { label: string; rect: { x: number; y: number; w: number; h: number } }>
+>;
+
+type OrderApiPayload = {
+  submittedAt: string;
+  source: string;
+  product: {
+    id: string;
+    name: string;
+    unitPrice: number;
+    colorHex: string;
+  };
+  quantities: Record<string, number>;
+  totals: {
+    totalQty: number;
+    totalPrice: number;
+  };
+  customization: {
+    sideProfiles: Record<Side, string>;
+    sideItemsCount: Record<Side, number>;
+    sideItems: Record<Side, DesignItem[]>;
+  };
+  customer: {
+    name: string;
+    whatsapp: string;
+    email: string;
+    city: string;
+    notes: string;
+  };
+};
+
+type OrderApiResponse = {
+  id?: string;
+  orderId?: string;
+  reference?: string;
+  message?: string;
+};
+
+type OrderApiResult = {
+  ok: boolean;
+  skipped?: boolean;
+  orderId?: string;
+  error?: string;
+};
+
+const DEFAULT_SIDES: Side[] = ["front", "back"];
+const ORDER_API_URL = String(import.meta.env.VITE_ORDER_API_URL ?? "").trim();
+
+const PRODUCTS: ProductOption[] = [
+  {
+    id: "tshirt",
+    name: "Camiseta",
+    subtitle: "Malha premium e caimento leve.",
+    unitPrice: 59.9,
+    sizes: ["P", "M", "G", "GG"],
+    sides: ["front", "back"],
+    catalogImageId: "t-shirt",
+  },
+  {
+    id: "polo",
+    name: "Camisa polo",
+    subtitle: "Visual elegante para equipes.",
+    unitPrice: 79.9,
+    sizes: ["P", "M", "G", "GG"],
+    sides: ["front", "back"],
+    catalogImageId: "camisa-polo",
+  },
+  {
+    id: "bone",
+    name: "Bone",
+    subtitle: "Alta visibilidade para marca.",
+    unitPrice: 39.9,
+    sizes: ["UN"],
+    sides: ["front", "back"],
+    catalogImageId: "almofadas-bones",
+  },
+  {
+    id: "ecobag",
+    name: "Ecobag",
+    subtitle: "Sustentavel e com boa area de estampa.",
+    unitPrice: 34.9,
+    sizes: ["UN"],
+    sides: ["front", "back"],
+    catalogImageId: "ecobag",
+  },
+  {
+    id: "moletom",
+    name: "Moletom",
+    subtitle: "Conforto para uniformes e campanhas.",
+    unitPrice: 109.9,
+    sizes: ["P", "M", "G", "GG"],
+    sides: ["front", "back"],
+    catalogImageId: "moletom-canguru",
+  },
 ];
 
-const SIZES = ["PP", "P", "M", "G", "GG", "XGG"];
+const STEP_ORDER: { id: StepId; label: string; icon: React.ElementType }[] = [
+  { id: "product", label: "Produto", icon: Shirt },
+  { id: "details", label: "Detalhes do pedido", icon: ClipboardList },
+  { id: "customize", label: "Personalizar", icon: Palette },
+  { id: "contact", label: "Seus dados", icon: UserRound },
+];
+
+const MOCKUP_URLS: Record<Side, string> = {
+  front: "/assets/tshirt-front.png",
+  back: "/assets/tshirt-back.png",
+};
+
+const MASK_URLS: Record<Side, string> = {
+  front: "/assets/tshirt-front-mask-soft.png",
+  back: "/assets/tshirt-back-mask.png",
+};
+
+const SIDE_LABEL: Record<Side, string> = {
+  front: "Frente",
+  back: "Costas",
+};
+
+const FONT_OPTIONS: string[] = [
+  "Plus Jakarta Sans",
+  "Arial",
+  "Roboto",
+  "Poppins",
+  "Montserrat",
+  "Open Sans",
+  "Lato",
+  "Nunito",
+  "Merriweather",
+  "Playfair Display",
+  "Oswald",
+  "Bebas Neue",
+  "Anton",
+  "Verdana",
+  "Tahoma",
+  "Trebuchet MS",
+  "Georgia",
+  "Times New Roman",
+  "Courier New",
+  "Impact",
+  "Comic Sans MS",
+];
+
+const DEFAULT_PRINT_PROFILES: PrintProfilesBySide = {
+  front: {
+    center: { label: "Centro", rect: { x: 310, y: 260, w: 280, h: 360 } },
+    chest: { label: "Peito esquerdo", rect: { x: 480, y: 220, w: 125, h: 125 } },
+    full: { label: "Frente grande", rect: { x: 270, y: 230, w: 360, h: 430 } },
+  },
+  back: {
+    center: { label: "Centro", rect: { x: 310, y: 250, w: 280, h: 380 } },
+    upper: { label: "Costas superior", rect: { x: 290, y: 230, w: 320, h: 260 } },
+    full: { label: "Costas grande", rect: { x: 270, y: 220, w: 360, h: 440 } },
+  },
+};
+
+const POLO_PRINT_PROFILES: PrintProfilesBySide = {
+  front: {
+    center: { label: "Centro", rect: { x: 320, y: 285, w: 260, h: 330 } },
+    chest: { label: "Peito esquerdo", rect: { x: 470, y: 250, w: 120, h: 115 } },
+    full: { label: "Frente grande", rect: { x: 285, y: 255, w: 330, h: 390 } },
+  },
+  back: {
+    center: { label: "Centro", rect: { x: 320, y: 275, w: 260, h: 340 } },
+    upper: { label: "Costas superior", rect: { x: 290, y: 250, w: 320, h: 230 } },
+    full: { label: "Costas grande", rect: { x: 275, y: 240, w: 350, h: 410 } },
+  },
+};
+
+const MOLETOM_PRINT_PROFILES: PrintProfilesBySide = {
+  front: {
+    center: { label: "Centro", rect: { x: 315, y: 300, w: 270, h: 330 } },
+    upperLeft: { label: "Superior esquerdo", rect: { x: 455, y: 255, w: 125, h: 125 } },
+  },
+  back: DEFAULT_PRINT_PROFILES.back,
+};
+
+const BONE_PRINT_PROFILES: PrintProfilesBySide = {
+  front: {
+    main: { label: "Frente", rect: { x: 295, y: 254, w: 311, h: 206 } },
+  },
+  back: {
+    main: { label: "Costas", rect: { x: 288, y: 209, w: 324, h: 231 } },
+  },
+};
+
+const ECOBAG_PRINT_PROFILES: PrintProfilesBySide = {
+  front: {
+    main: { label: "Frente", rect: { x: 282, y: 342, w: 360, h: 400 } },
+  },
+  back: {
+    main: { label: "Costas", rect: { x: 282, y: 342, w: 360, h: 400 } },
+  },
+};
+
+const PRODUCT_PRINT_PROFILES: Record<string, PrintProfilesBySide> = {
+  tshirt: DEFAULT_PRINT_PROFILES,
+  polo: POLO_PRINT_PROFILES,
+  moletom: MOLETOM_PRINT_PROFILES,
+  bone: BONE_PRINT_PROFILES,
+  ecobag: ECOBAG_PRINT_PROFILES,
+};
+
+type ProductMockupConfig = {
+  front: string;
+  back?: string;
+  masks?: Partial<Record<Side, string>>;
+  editorScale?: number;
+};
+
+const PRODUCT_MOCKUPS: Record<string, ProductMockupConfig> = {
+  tshirt: {
+    front: MOCKUP_URLS.front,
+    back: MOCKUP_URLS.back,
+    masks: {
+      front: MASK_URLS.front,
+      back: MASK_URLS.back,
+    },
+  },
+  polo: {
+    front: "/assets/polo-front.png",
+    back: "/assets/polo-back.png",
+    masks: {
+      front: "/assets/polo-front-mask.png",
+      back: "/assets/polo-back-mask.png",
+    },
+    editorScale: 0.88,
+  },
+  moletom: {
+    front: "/assets/moletom-front.png",
+    back: "/assets/moletom-back.png",
+    masks: {
+      front: "/assets/moletom-front-mask.png",
+      back: "/assets/moletom-back-mask.png",
+    },
+  },
+  bone: {
+    front: "/assets/bone-front.png",
+    back: "/assets/bone-back.png",
+    masks: {
+      front: "/assets/bone-front-mask.png",
+      back: "/assets/bone-back-mask.png",
+    },
+  },
+  ecobag: {
+    front: "/assets/ecobag-front.png",
+    back: "/assets/ecobag-back.png",
+    masks: {
+      front: "/assets/ecobag-front-mask.png",
+      back: "/assets/ecobag-back-mask.png",
+    },
+  },
+};
+
+function money(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createQtyMap(sizes: string[]): Record<string, number> {
+  return sizes.reduce((acc, size) => {
+    acc[size] = 0;
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+function useHtmlImage(src?: string | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!src) {
+      setImg(null);
+      return;
+    }
+
+    const image = new window.Image();
+    image.crossOrigin = "anonymous";
+    image.src = src;
+    image.onload = () => setImg(image);
+    image.onerror = () => setImg(null);
+  }, [src]);
+
+  return img;
+}
+
+function useAlphaMaskImage(src?: string | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!src) {
+      setImg(null);
+      return;
+    }
+
+    const base = new window.Image();
+    base.crossOrigin = "anonymous";
+    base.src = src;
+
+    base.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = base.width;
+      canvas.height = base.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.drawImage(base, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      const cornerLum = data[0] * 0.299 + data[1] * 0.587 + data[2] * 0.114;
+      const shouldInvert = cornerLum > 200;
+
+      for (let index = 0; index < data.length; index += 4) {
+        const lum = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+        let alpha = shouldInvert ? 255 - lum : lum;
+
+        if (alpha < 6) alpha = 0;
+        if (alpha > 250) alpha = 255;
+
+        data[index] = 255;
+        data[index + 1] = 255;
+        data[index + 2] = 255;
+        data[index + 3] = alpha;
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      const out = new window.Image();
+      out.crossOrigin = "anonymous";
+      out.src = canvas.toDataURL("image/png");
+      out.onload = () => setImg(out);
+    };
+
+    base.onerror = () => setImg(null);
+  }, [src]);
+
+  return img;
+}
+
+function useAlphaFromBaseImage(baseImg: HTMLImageElement | null) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!baseImg) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = baseImg.width;
+    canvas.height = baseImg.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(baseImg, 0, 0);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let index = 0; index < data.length; index += 4) {
+      const alpha = data[index + 3];
+      data[index] = 255;
+      data[index + 1] = 255;
+      data[index + 2] = 255;
+      data[index + 3] = alpha;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    const out = new window.Image();
+    out.crossOrigin = "anonymous";
+    out.src = canvas.toDataURL("image/png");
+    out.onload = () => setImg(out);
+  }, [baseImg]);
+
+  return img;
+}
+
+function useMaskedBaseImage(baseImg: HTMLImageElement | null, alphaMaskImg: HTMLImageElement | null) {
+  const [out, setOut] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!baseImg || !alphaMaskImg) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = baseImg.width;
+    canvas.height = baseImg.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(alphaMaskImg, 0, 0, canvas.width, canvas.height);
+
+    const outImg = new window.Image();
+    outImg.crossOrigin = "anonymous";
+    outImg.src = canvas.toDataURL("image/png");
+    outImg.onload = () => setOut(outImg);
+  }, [baseImg, alphaMaskImg]);
+
+  return out;
+}
+
+function useTintedMaskImage(
+  baseImg: HTMLImageElement | null,
+  alphaMaskImg: HTMLImageElement | null,
+  colorHex: string,
+) {
+  const [out, setOut] = useState<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (!baseImg || !alphaMaskImg || !colorHex) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = baseImg.width;
+    canvas.height = baseImg.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(alphaMaskImg, 0, 0, canvas.width, canvas.height);
+
+    const outImg = new window.Image();
+    outImg.crossOrigin = "anonymous";
+    outImg.src = canvas.toDataURL("image/png");
+    outImg.onload = () => setOut(outImg);
+  }, [baseImg, alphaMaskImg, colorHex]);
+
+  return out;
+}
+
+function CanvasImageItem({
+  item,
+  onSelect,
+  onUpdate,
+  onClamp,
+}: {
+  item: ImageDesignItem;
+  onSelect: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<ImageDesignItem>) => void;
+  onClamp: (node: CanvasNode) => void;
+}) {
+  const image = useHtmlImage(item.src);
+  if (!image) return null;
+
+  return (
+    <KonvaImage
+      id={item.id}
+      image={image}
+      x={item.x}
+      y={item.y}
+      width={item.width}
+      height={item.height}
+      rotation={item.rotation}
+      draggable
+      onClick={() => onSelect(item.id)}
+      onTap={() => onSelect(item.id)}
+      onDragMove={(event) => onClamp(event.target as CanvasNode)}
+      onDragEnd={(event) => onUpdate(item.id, { x: event.target.x(), y: event.target.y() })}
+      onTransformEnd={(event) => {
+        const node = event.target as CanvasNode;
+        const scaleX = node.scaleX();
+        const scaleY = node.scaleY();
+
+        const width = Math.max(10, node.width() * scaleX);
+        const height = Math.max(10, node.height() * scaleY);
+
+        node.scaleX(1);
+        node.scaleY(1);
+        node.width(width);
+        node.height(height);
+
+        onUpdate(item.id, {
+          x: node.x(),
+          y: node.y(),
+          rotation: node.rotation(),
+          width,
+          height,
+        });
+
+        onClamp(node);
+      }}
+    />
+  );
+}
 
 export function PersonalizeApp() {
-  const [currentStep, setCurrentStep] = useState<Step>("product");
-  const [order, setOrder] = useState<OrderData>({
-    categoryId: "",
-    categoryName: "",
-    quantity: "1",
-    color: "",
-    size: "",
-    hasArt: false,
-    artDescription: "",
+  const [step, setStep] = useState<StepId>("product");
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [side, setSide] = useState<Side>("front");
+  const [productColor, setProductColor] = useState("#ffffff");
+  const [printProfile, setPrintProfile] = useState<Record<Side, string>>({
+    front: "center",
+    back: "center",
+  });
+  const [qtyBySize, setQtyBySize] = useState<Record<string, number>>({});
+  const [designs, setDesigns] = useState<Record<Side, { items: DesignItem[] }>>({
+    front: { items: [] },
+    back: { items: [] },
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const [customer, setCustomer] = useState({
     name: "",
+    whatsapp: "",
     email: "",
-    phone: "",
     city: "",
     notes: "",
   });
 
-  const currentStepIndex = STEPS.findIndex((s) => s.id === currentStep);
+  const [editorError, setEditorError] = useState("");
+  const [formError, setFormError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [backendMessage, setBackendMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendViaWhatsApp, setSendViaWhatsApp] = useState(true);
 
-  const updateOrder = (fields: Partial<OrderData>) => {
-    setOrder((prev) => ({ ...prev, ...fields }));
+  const stageRef = useRef<unknown>(null);
+  const trRef = useRef<unknown>(null);
+
+  const selectedProduct = useMemo(
+    () => PRODUCTS.find((product) => product.id === selectedProductId) ?? null,
+    [selectedProductId],
+  );
+
+  const sides = useMemo<Side[]>(() => selectedProduct?.sides ?? DEFAULT_SIDES, [selectedProduct]);
+  const unitPrice = selectedProduct?.unitPrice ?? 0;
+  const hasOrderApi = ORDER_API_URL.length > 0;
+  const activeProductId = selectedProduct?.id ?? "tshirt";
+
+  const totalQty = useMemo(
+    () => Object.values(qtyBySize).reduce((sum, value) => sum + Number(value || 0), 0),
+    [qtyBySize],
+  );
+
+  const totalPrice = totalQty * unitPrice;
+
+  const mockupConfig = PRODUCT_MOCKUPS[activeProductId] ?? PRODUCT_MOCKUPS.tshirt;
+  const frontMockupSrc = mockupConfig.front;
+  const backMockupSrc = mockupConfig.back ?? mockupConfig.front;
+  const frontMaskSrc = mockupConfig.masks?.front;
+  const backMaskSrc = mockupConfig.masks?.back;
+
+  const frontBase = useHtmlImage(frontMockupSrc);
+  const backBase = useHtmlImage(backMockupSrc);
+  const manualFrontMask = useAlphaMaskImage(frontMaskSrc);
+  const manualBackMask = useAlphaMaskImage(backMaskSrc);
+  const autoFrontMask = useAlphaFromBaseImage(frontBase);
+  const autoBackMask = useAlphaFromBaseImage(backBase);
+
+  const frontMask = manualFrontMask ?? autoFrontMask;
+  const backMask = manualBackMask ?? autoBackMask;
+
+  const frontMasked = useMaskedBaseImage(frontBase, frontMask);
+  const backMasked = useMaskedBaseImage(backBase, backMask);
+  const frontTint = useTintedMaskImage(frontBase, frontMask, productColor);
+  const backTint = useTintedMaskImage(backBase, backMask, productColor);
+
+  const shirtMasked = side === "front" ? frontMasked : backMasked;
+  const tintMasked = side === "front" ? frontTint : backTint;
+
+  const sideItems = designs[side].items;
+  const selectedItem = sideItems.find((item) => item.id === selectedId);
+  const selectedText = selectedItem?.type === "text" ? selectedItem : null;
+
+  const productPrintProfiles = PRODUCT_PRINT_PROFILES[activeProductId] ?? DEFAULT_PRINT_PROFILES;
+  const defaultPrintKey = Object.keys(productPrintProfiles[side])[0] ?? "center";
+  const selectedPrintKey = printProfile[side];
+  const printKey =
+    selectedPrintKey && selectedPrintKey in productPrintProfiles[side]
+      ? selectedPrintKey
+      : defaultPrintKey;
+  const printArea = productPrintProfiles[side][printKey].rect;
+  const printOptions = productPrintProfiles[side];
+
+  const currentStepIndex = STEP_ORDER.findIndex((stepItem) => stepItem.id === step);
+
+  const canProceedFromStep = (stepId: StepId) => {
+    if (stepId === "product") return Boolean(selectedProduct);
+    if (stepId === "details") return totalQty > 0;
+    if (stepId === "customize") return true;
+    if (stepId === "contact") return Boolean(customer.name.trim() && customer.whatsapp.trim());
+    return false;
   };
 
-  const canProceed = (): boolean => {
-    switch (currentStep) {
-      case "product":
-        return !!order.categoryId;
-      case "customize":
-        return !!order.quantity && !!order.size;
-      case "contact":
-        return !!order.name && !!order.phone && !!order.city;
-      case "confirm":
-        return true;
+  const canOpenStep = (stepId: StepId) => {
+    const targetIndex = STEP_ORDER.findIndex((stepItem) => stepItem.id === stepId);
+
+    if (targetIndex <= currentStepIndex) return true;
+
+    for (let index = 0; index < targetIndex; index += 1) {
+      if (!canProceedFromStep(STEP_ORDER[index].id)) return false;
+    }
+
+    return true;
+  };
+
+  const goNext = () => {
+    if (!canProceedFromStep(step)) return;
+    const next = STEP_ORDER[currentStepIndex + 1];
+    if (next) setStep(next.id);
+  };
+
+  const goBack = () => {
+    const prev = STEP_ORDER[currentStepIndex - 1];
+    if (prev) setStep(prev.id);
+  };
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+
+    setQtyBySize(createQtyMap(selectedProduct.sizes));
+    setSide(selectedProduct.sides[0] ?? "front");
+    setPrintProfile({ front: "center", back: "center" });
+    setDesigns({ front: { items: [] }, back: { items: [] } });
+    setSelectedId(null);
+    setProductColor("#ffffff");
+    setEditorError("");
+    setFormError("");
+    setSuccessMessage("");
+    setBackendMessage("");
+    setSendViaWhatsApp(true);
+    setStep((current) => (current === "product" ? current : "details"));
+  }, [selectedProduct]);
+
+  useEffect(() => {
+    if (!sides.includes(side)) {
+      setSide(sides[0] ?? "front");
+    }
+  }, [sides, side]);
+
+  useEffect(() => {
+    const stage = stageRef.current as StageRefShape | null;
+    const transformer = trRef.current as TransformerRefShape | null;
+    if (!stage || !transformer) return;
+
+    const node = selectedId ? stage.findOne(`#${selectedId}`) : null;
+    transformer.nodes(node ? [node] : []);
+    transformer.getLayer()?.batchDraw();
+  }, [selectedId, side, sideItems.length]);
+
+  const updateItem = (id: string, patch: Partial<DesignItem>) => {
+    setDesigns((previous) => ({
+      ...previous,
+      [side]: {
+        items: previous[side].items.map((item) =>
+          item.id === id ? ({ ...item, ...patch } as DesignItem) : item,
+        ),
+      },
+    }));
+  };
+
+  const addText = () => {
+    const id = `txt_${Date.now()}`;
+    const newItem: TextDesignItem = {
+      id,
+      type: "text",
+      text: "Sua marca",
+      x: printArea.x + 20,
+      y: printArea.y + 30,
+      width: Math.min(280, printArea.w - 20),
+      fontSize: 36,
+      fill: "#111111",
+      align: "left",
+      rotation: 0,
+      fontFamily: FONT_OPTIONS[0],
+    };
+
+    setDesigns((previous) => ({
+      ...previous,
+      [side]: {
+        items: [...previous[side].items, newItem],
+      },
+    }));
+
+    setSelectedId(id);
+  };
+
+  const removeSelected = () => {
+    if (!selectedId) return;
+
+    setDesigns((previous) => ({
+      ...previous,
+      [side]: {
+        items: previous[side].items.filter((item) => item.id !== selectedId),
+      },
+    }));
+
+    setSelectedId(null);
+  };
+
+  const onUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const src = URL.createObjectURL(file);
+    const id = `img_${Date.now()}`;
+
+    const image = new window.Image();
+    image.crossOrigin = "anonymous";
+    image.src = src;
+
+    image.onload = () => {
+      const maxWidth = printArea.w * 0.85;
+      const maxHeight = printArea.h * 0.55;
+      const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+
+      const newItem: ImageDesignItem = {
+        id,
+        type: "image",
+        src,
+        x: printArea.x + (printArea.w - image.width * scale) / 2,
+        y: printArea.y + 30,
+        width: image.width * scale,
+        height: image.height * scale,
+        rotation: 0,
+      };
+
+      setDesigns((previous) => ({
+        ...previous,
+        [side]: {
+          items: [...previous[side].items, newItem],
+        },
+      }));
+
+      setSelectedId(id);
+      setEditorError("");
+    };
+
+    image.onerror = () => setEditorError("Falha ao carregar a imagem enviada.");
+    event.target.value = "";
+  };
+
+  const clampDrag = (node: CanvasNode) => {
+    const box = node.getClientRect({ skipStroke: true, skipShadow: true });
+    const dx = node.x() - box.x;
+    const dy = node.y() - box.y;
+
+    const minX = printArea.x + dx;
+    const minY = printArea.y + dy;
+    const maxX = printArea.x + printArea.w - box.width + dx;
+    const maxY = printArea.y + printArea.h - box.height + dy;
+
+    node.x(clamp(node.x(), minX, maxX));
+    node.y(clamp(node.y(), minY, maxY));
+    const transformer = trRef.current as TransformerRefShape | null;
+    transformer?.getLayer()?.batchDraw();
+  };
+
+  const changeQty = (size: string, delta: number) => {
+    setQtyBySize((previous) => ({
+      ...previous,
+      [size]: Math.max(0, (previous[size] ?? 0) + delta),
+    }));
+  };
+
+  const filledSizes = selectedProduct
+    ? selectedProduct.sizes
+        .map((size) => ({ size, value: qtyBySize[size] ?? 0 }))
+        .filter((item) => item.value > 0)
+    : [];
+
+  const buildOrderPayload = (): OrderApiPayload | null => {
+    if (!selectedProduct) return null;
+
+    return {
+      submittedAt: new Date().toISOString(),
+      source: "personalizador-online",
+      product: {
+        id: selectedProduct.id,
+        name: selectedProduct.name,
+        unitPrice,
+        colorHex: productColor,
+      },
+      quantities: qtyBySize,
+      totals: {
+        totalQty,
+        totalPrice,
+      },
+      customization: {
+        sideProfiles: {
+          front: printProfile.front,
+          back: printProfile.back,
+        },
+        sideItemsCount: {
+          front: designs.front.items.length,
+          back: designs.back.items.length,
+        },
+        sideItems: {
+          front: designs.front.items,
+          back: designs.back.items,
+        },
+      },
+      customer: {
+        name: customer.name,
+        whatsapp: customer.whatsapp,
+        email: customer.email,
+        city: customer.city,
+        notes: customer.notes,
+      },
+    };
+  };
+
+  const submitOrderToApi = async (payload: OrderApiPayload): Promise<OrderApiResult> => {
+    if (!hasOrderApi) return { ok: false, skipped: true };
+
+    try {
+      const response = await fetch(ORDER_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const rawText = await response.text();
+      let body: OrderApiResponse = {};
+
+      if (rawText) {
+        try {
+          body = JSON.parse(rawText) as OrderApiResponse;
+        } catch {
+          body = {};
+        }
+      }
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: body.message || `Falha no backend (${response.status}).`,
+        };
+      }
+
+      return {
+        ok: true,
+        orderId: body.orderId || body.id || body.reference,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Erro ao enviar pedido para o backend.",
+      };
     }
   };
 
-  const nextStep = () => {
-    const idx = currentStepIndex;
-    if (idx < STEPS.length - 1) setCurrentStep(STEPS[idx + 1].id);
+  const buildWhatsAppMessage = (orderId?: string) => {
+    if (!selectedProduct) return "";
+
+    const qtyLines =
+      filledSizes.map((item) => `${item.size}: ${item.value}`).join("\n") ||
+      "Nenhuma quantidade escolhida";
+
+    return (
+      `Ola! Vim pelo Personalizador Online da BARRETOS e quero fechar meu pedido.\n\n` +
+      `${orderId ? `Referencia backend: ${orderId}\n` : ""}` +
+      `Produto: ${selectedProduct.name}\n` +
+      `Quantidade por tamanho:\n${qtyLines}\n` +
+      `Valor unitario: ${money(unitPrice)}\n` +
+      `Total estimado: ${money(totalPrice)}\n\n` +
+      `Personalizacao:\n` +
+      `- Cor base: ${productColor}\n` +
+      `- Frente: ${designs.front.items.length} elemento(s)\n` +
+      `- Costas: ${designs.back.items.length} elemento(s)\n\n` +
+      `Dados do cliente:\n` +
+      `Nome: ${customer.name}\n` +
+      `WhatsApp: ${customer.whatsapp}\n` +
+      `Email: ${customer.email || "Nao informado"}\n` +
+      `Cidade: ${customer.city || "Nao informado"}\n` +
+      `${customer.notes ? `Observacoes: ${customer.notes}\n` : ""}\n` +
+      `Origem: Personalizador Online`
+    );
   };
 
-  const prevStep = () => {
-    const idx = currentStepIndex;
-    if (idx > 0) setCurrentStep(STEPS[idx - 1].id);
-  };
+  const handleSubmitOrder = async () => {
+    if (!selectedProduct) {
+      setFormError("Escolha um produto para continuar.");
+      return;
+    }
 
-  const generateOrderMessage = () => {
-    return `Olá! Vim pelo Personalizador Online da BARRETOS e quero fazer um pedido.
+    if (!customer.name.trim() || !customer.whatsapp.trim()) {
+      setFormError("Preencha nome e WhatsApp para enviar o pedido.");
+      return;
+    }
 
-📦 *Produto:* ${order.categoryName}
-📏 *Tamanho:* ${order.size}
-🎨 *Cor preferida:* ${order.color || "A definir"}
-🔢 *Quantidade:* ${order.quantity}
-🖼️ *Tenho arte:* ${order.hasArt ? "Sim" : "Não"}
-${order.artDescription ? `📝 *Descrição da arte:* ${order.artDescription}` : ""}
+    setIsSubmitting(true);
+    setFormError("");
+    setSuccessMessage("");
+    setBackendMessage("");
 
-👤 *Nome:* ${order.name}
-📱 *Telefone:* ${order.phone}
-📧 *Email:* ${order.email || "Não informado"}
-📍 *Cidade/UF:* ${order.city}
-${order.notes ? `💬 *Observações:* ${order.notes}` : ""}
+    let apiResult: OrderApiResult = { ok: false, skipped: true };
+    const payload = buildOrderPayload();
 
-Origem: Personalizador Online`;
-  };
+    if (payload && hasOrderApi) {
+      apiResult = await submitOrderToApi(payload);
 
-  const handleSendToWhatsApp = () => {
-    trackWhatsAppClick(order.categoryName, "Personalizador", "order-submit");
-    const message = encodeURIComponent(generateOrderMessage());
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+      if (apiResult.ok) {
+        setBackendMessage(
+          apiResult.orderId
+            ? `Pedido salvo no backend. Referencia: ${apiResult.orderId}.`
+            : "Pedido salvo no backend com sucesso.",
+        );
+      } else {
+        setFormError(apiResult.error || "Nao foi possivel salvar no backend.");
+      }
+    }
+
+    const shouldOpenWhatsApp = !hasOrderApi || sendViaWhatsApp;
+
+    if (shouldOpenWhatsApp) {
+      const message = buildWhatsAppMessage(apiResult.orderId);
+      trackWhatsAppClick(selectedProduct.name, "Personalize", "order-submit");
+      window.open(
+        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+
+      if (apiResult.ok) {
+        setSuccessMessage("Pedido salvo e enviado no WhatsApp com sucesso.");
+      } else if (hasOrderApi) {
+        setSuccessMessage("Pedido enviado no WhatsApp. O backend nao confirmou o salvamento.");
+      } else {
+        setSuccessMessage("Pedido enviado para o WhatsApp com sucesso.");
+      }
+    } else if (apiResult.ok) {
+      setSuccessMessage("Pedido salvo no backend com sucesso.");
+    }
+
+    setIsSubmitting(false);
   };
 
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden" style={{ boxShadow: "var(--shadow-xl)" }}>
-      {/* Step indicator */}
-      <div className="bg-muted/50 p-4 border-b border-border">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          {STEPS.map((step, idx) => (
-            <div key={step.id} className="flex items-center gap-1">
+      <div className="bg-muted/40 p-4 border-b border-border">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {STEP_ORDER.map((stepItem, index) => {
+            const isCurrent = stepItem.id === step;
+            const isDone = index < currentStepIndex;
+            const canClick = canOpenStep(stepItem.id);
+
+            return (
               <button
-                onClick={() => idx < currentStepIndex && setCurrentStep(step.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                  idx === currentStepIndex
-                    ? "bg-secondary text-secondary-foreground"
-                    : idx < currentStepIndex
-                    ? "bg-secondary/20 text-secondary cursor-pointer"
-                    : "bg-muted text-muted-foreground"
-                }`}
+                key={stepItem.id}
+                type="button"
+                className={`rounded-xl px-3 py-2 text-left border transition-colors ${
+                  isCurrent
+                    ? "border-secondary bg-secondary/10"
+                    : isDone
+                      ? "border-secondary/40 bg-secondary/5"
+                      : "border-border bg-background"
+                } ${canClick ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                onClick={() => canClick && setStep(stepItem.id)}
+                disabled={!canClick}
               >
-                <step.icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{step.label}</span>
-                <span className="sm:hidden">{idx + 1}</span>
+                <div className="flex items-center gap-2 text-xs font-semibold">
+                  <stepItem.icon className="h-4 w-4" />
+                  <span className="truncate">{stepItem.label}</span>
+                </div>
               </button>
-              {idx < STEPS.length - 1 && (
-                <ChevronRight className="h-4 w-4 text-muted-foreground mx-1" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      <div className="p-6 md:p-8 min-h-[400px]">
-        {/* Step 1: Choose Product */}
-        {currentStep === "product" && (
-          <div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Escolha o Produto</h3>
-            <p className="text-sm text-muted-foreground mb-6">Selecione a categoria do produto que deseja personalizar.</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {CATEGORIES.map((cat) => {
-                const img = getProductImage(cat.id);
+      <div className="p-6 md:p-8 space-y-6">
+        {step === "product" && (
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Escolha o produto</h3>
+              <p className="text-sm text-muted-foreground">
+                Selecione o item principal para montar o pedido no fluxo novo.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+              {PRODUCTS.map((product) => {
+                const selected = selectedProductId === product.id;
                 return (
                   <button
-                    key={cat.id}
-                    onClick={() => updateOrder({ categoryId: cat.id, categoryName: cat.name })}
-                    className={`relative rounded-xl border-2 p-3 text-center transition-all hover:scale-[1.02] ${
-                      order.categoryId === cat.id
-                        ? "border-secondary bg-secondary/5 ring-2 ring-secondary/20"
+                    key={product.id}
+                    type="button"
+                    onClick={() => setSelectedProductId(product.id)}
+                    className={`rounded-xl border p-3 text-left transition-all ${
+                      selected
+                        ? "border-secondary bg-secondary/10 ring-2 ring-secondary/20"
                         : "border-border hover:border-secondary/40"
                     }`}
                   >
                     <div className="aspect-square rounded-lg overflow-hidden bg-muted mb-2">
-                      <img src={img} alt={cat.name} className="w-full h-full object-cover" loading="lazy" />
+                      <img
+                        src={getProductImage(product.catalogImageId)}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     </div>
-                    <span className="text-xs font-semibold text-foreground">{cat.name}</span>
-                    {order.categoryId === cat.id && (
-                      <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center">
-                        <Check className="h-3 w-3" />
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">{product.subtitle}</p>
+                      <p className="text-sm font-bold text-secondary">{money(product.unitPrice)}</p>
+                    </div>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Step 2: Customize */}
-        {currentStep === "customize" && (
-          <div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Personalize seu Pedido</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Defina as especificações do seu <strong>{order.categoryName}</strong>.
-            </p>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Tamanho *</label>
-                  <div className="flex flex-wrap gap-2">
-                    {SIZES.map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => updateOrder({ size })}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                          order.size === size
-                            ? "bg-secondary text-secondary-foreground border-secondary"
-                            : "border-border text-foreground hover:border-secondary/50"
-                        }`}
+        {step === "details" && selectedProduct && (
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Detalhes do pedido</h3>
+              <p className="text-sm text-muted-foreground">
+                Quantidades por tamanho com padrao em zero e total calculado automaticamente.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
+              <div className="rounded-xl border border-border bg-background/80 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-foreground">{selectedProduct.name}</p>
+                  <p className="text-sm text-muted-foreground">Unitario: {money(unitPrice)}</p>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedProduct.sizes.map((size) => (
+                    <div
+                      key={size}
+                      className="flex items-center justify-between rounded-lg border border-border p-2.5"
+                    >
+                      <span className="font-semibold text-sm">{size}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-md border border-border bg-muted text-sm font-semibold"
+                          onClick={() => changeQty(size, -1)}
+                          disabled={(qtyBySize[size] ?? 0) === 0}
+                        >
+                          -
+                        </button>
+                        <span className="w-6 text-center text-sm font-bold">{qtyBySize[size] ?? 0}</span>
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-md border border-border bg-muted text-sm font-semibold"
+                          onClick={() => changeQty(size, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <aside className="rounded-xl border border-border bg-muted/40 p-4 space-y-2">
+                <h4 className="font-semibold text-foreground">Resumo rapido</h4>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Produto</span>
+                  <span className="font-semibold">{selectedProduct.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Quantidade total</span>
+                  <span className="font-semibold">{totalQty}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Preco unitario</span>
+                  <span className="font-semibold">{money(unitPrice)}</span>
+                </div>
+                <div className="pt-2 border-t border-border flex justify-between">
+                  <span className="font-semibold">Total</span>
+                  <span className="text-secondary font-bold">{money(totalPrice)}</span>
+                </div>
+              </aside>
+            </div>
+          </section>
+        )}
+
+        {step === "customize" && selectedProduct && (
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Personalizar</h3>
+              <p className="text-sm text-muted-foreground">
+                Agora ajuste cor, logo, texto e posicao da estampa antes de ir para seus dados.
+              </p>
+            </div>
+
+            <div className="grid xl:grid-cols-[330px_1fr] gap-4">
+              <aside className="rounded-xl border border-border bg-background/80 p-4 space-y-3">
+                {sides.length > 1 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {sides.map((sideName) => (
+                      <Button
+                        key={sideName}
+                        type="button"
+                        variant={side === sideName ? "secondary" : "outline"}
+                        onClick={() => {
+                          setSelectedId(null);
+                          setSide(sideName);
+                        }}
                       >
-                        {size}
-                      </button>
+                        {SIDE_LABEL[sideName]}
+                      </Button>
                     ))}
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Quantidade *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={order.quantity}
-                    onChange={(e) => updateOrder({ quantity: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Cor preferida</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Azul marinho, Preto..."
-                    value={order.color}
-                    onChange={(e) => updateOrder({ color: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">Você tem arte pronta?</label>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => updateOrder({ hasArt: true })}
-                      className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                        order.hasArt
-                          ? "bg-secondary text-secondary-foreground border-secondary"
-                          : "border-border text-foreground hover:border-secondary/50"
-                      }`}
-                    >
-                      <Upload className="h-4 w-4 inline mr-2" />
-                      Sim, tenho arte
-                    </button>
-                    <button
-                      onClick={() => updateOrder({ hasArt: false })}
-                      className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                        !order.hasArt
-                          ? "bg-secondary text-secondary-foreground border-secondary"
-                          : "border-border text-foreground hover:border-secondary/50"
-                      }`}
-                    >
-                      Não, preciso criar
-                    </button>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    Produto com estampa em lado unico (frente).
                   </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Local da estampa</label>
+                  <select
+                    value={printKey}
+                    onChange={(event) =>
+                      setPrintProfile((previous) => ({ ...previous, [side]: event.target.value }))
+                    }
+                    className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                  >
+                    {Object.entries(printOptions).map(([key, option]) => (
+                      <option key={key} value={key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-1.5 block">
-                    {order.hasArt ? "Descreva sua arte" : "O que você quer na estampa?"}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Cor do produto</label>
+                  <input
+                    type="color"
+                    value={productColor}
+                    onChange={(event) => setProductColor(event.target.value)}
+                    className="w-full h-10 rounded-lg border border-border bg-background p-1"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Upload de logo/arte</label>
+                  <input
+                    type="file"
+                    accept="image/*,.svg"
+                    onChange={onUpload}
+                    className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-secondary-foreground"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={addText}>
+                    Adicionar texto
+                  </Button>
+                  <Button type="button" variant="outline" onClick={removeSelected} disabled={!selectedId}>
+                    Remover item
+                  </Button>
+                </div>
+
+                {selectedText && (
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground">Texto selecionado</p>
+
+                    <input
+                      value={selectedText.text}
+                      onChange={(event) => updateItem(selectedText.id, { text: event.target.value })}
+                      className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+                    />
+
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Fonte</label>
+                      <select
+                        value={selectedText.fontFamily}
+                        onChange={(event) =>
+                          updateItem(selectedText.id, {
+                            fontFamily: event.target.value,
+                          })
+                        }
+                        className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                      >
+                        {FONT_OPTIONS.map((fontName) => (
+                          <option key={fontName} value={fontName}>
+                            {fontName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="color"
+                        value={selectedText.fill}
+                        onChange={(event) => updateItem(selectedText.id, { fill: event.target.value })}
+                        className="w-full h-9 rounded-md border border-border bg-background p-1"
+                      />
+                      <select
+                        value={selectedText.align}
+                        onChange={(event) =>
+                          updateItem(selectedText.id, {
+                            align: event.target.value as "left" | "center" | "right",
+                          })
+                        }
+                        className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                      >
+                        <option value="left">Esquerda</option>
+                        <option value="center">Centro</option>
+                        <option value="right">Direita</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Tamanho: {selectedText.fontSize}px</p>
+                      <input
+                        type="range"
+                        min={12}
+                        max={120}
+                        value={selectedText.fontSize}
+                        onChange={(event) =>
+                          updateItem(selectedText.id, { fontSize: Number(event.target.value) })
+                        }
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {editorError && <p className="text-xs font-medium text-destructive">{editorError}</p>}
+                <p className="text-xs text-muted-foreground">
+                  Mockup ajustado por produto. Alguns itens usam o mesmo visual na frente e costas.
+                </p>
+              </aside>
+
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full border border-border px-3 py-1 bg-background">{selectedProduct.name}</span>
+                  <span className="rounded-full border border-border px-3 py-1 bg-background">Vista: {SIDE_LABEL[side]}</span>
+                  <span className="rounded-full border border-border px-3 py-1 bg-background">
+                    Area: {printArea.w} x {printArea.h}
+                  </span>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background overflow-auto">
+                  <Stage
+                    width={CANVAS_W}
+                    height={CANVAS_H}
+                    ref={stageRef}
+                    onMouseDown={(event) => {
+                      const clickedOnEmpty = event.target === event.target.getStage();
+                      if (clickedOnEmpty) setSelectedId(null);
+                    }}
+                  >
+                    <Layer>
+                      <Rect x={0} y={0} width={CANVAS_W} height={CANVAS_H} fill="#E2E8F0" />
+
+                      {shirtMasked && tintMasked && (() => {
+                        const targetWidth = CANVAS_W * 0.78;
+                        const baseScale = targetWidth / shirtMasked.width;
+                        const scale = baseScale * (mockupConfig.editorScale ?? 1);
+
+                        const width = shirtMasked.width * scale;
+                        const height = shirtMasked.height * scale;
+                        const x = (CANVAS_W - width) / 2;
+                        const y = (CANVAS_H - height) / 2 - 10;
+
+                        return (
+                          <>
+                            <KonvaImage
+                              image={shirtMasked}
+                              x={x}
+                              y={y}
+                              width={width}
+                              height={height}
+                              listening={false}
+                            />
+                            <KonvaImage
+                              image={tintMasked}
+                              x={x}
+                              y={y}
+                              width={width}
+                              height={height}
+                              opacity={0.95}
+                              globalCompositeOperation="multiply"
+                              listening={false}
+                            />
+                          </>
+                        );
+                      })()}
+
+                      <Rect
+                        x={printArea.x}
+                        y={printArea.y}
+                        width={printArea.w}
+                        height={printArea.h}
+                        stroke="rgba(15,23,42,0.55)"
+                        dash={[8, 6]}
+                        fill="rgba(255,255,255,0.08)"
+                      />
+                    </Layer>
+
+                    <Layer>
+                      <Group
+                        clipX={printArea.x}
+                        clipY={printArea.y}
+                        clipWidth={printArea.w}
+                        clipHeight={printArea.h}
+                      >
+                        {sideItems.map((item) => {
+                          if (item.type === "text") {
+                            return (
+                              <Text
+                                key={item.id}
+                                id={item.id}
+                                text={item.text}
+                                x={item.x}
+                                y={item.y}
+                                width={item.width}
+                                fontSize={item.fontSize}
+                                fill={item.fill}
+                                align={item.align}
+                                fontFamily={item.fontFamily}
+                                rotation={item.rotation}
+                                draggable
+                                onClick={() => setSelectedId(item.id)}
+                                onTap={() => setSelectedId(item.id)}
+                                onDragMove={(event) => clampDrag(event.target)}
+                                onDragEnd={(event) =>
+                                  updateItem(item.id, { x: event.target.x(), y: event.target.y() })
+                                }
+                                onTransformEnd={(event) => {
+                                  const node = event.target as CanvasNode;
+                                  const scaleX = node.scaleX();
+                                  const scaleY = node.scaleY();
+                                  const width = Math.max(70, node.width() * scaleX);
+                                  const fontSize = Math.max(12, item.fontSize * scaleY);
+
+                                  node.scaleX(1);
+                                  node.scaleY(1);
+
+                                  updateItem(item.id, {
+                                    x: node.x(),
+                                    y: node.y(),
+                                    rotation: node.rotation(),
+                                    width,
+                                    fontSize,
+                                  });
+
+                                  clampDrag(node);
+                                }}
+                              />
+                            );
+                          }
+
+                          return (
+                            <CanvasImageItem
+                              key={item.id}
+                              item={item}
+                              onSelect={setSelectedId}
+                              onUpdate={updateItem}
+                              onClamp={clampDrag}
+                            />
+                          );
+                        })}
+                      </Group>
+
+                      <Transformer
+                        ref={trRef}
+                        rotateEnabled
+                        keepRatio={false}
+                        anchorSize={10}
+                        enabledAnchors={[
+                          "top-left",
+                          "top-right",
+                          "bottom-left",
+                          "bottom-right",
+                          "middle-left",
+                          "middle-right",
+                          "top-center",
+                          "bottom-center",
+                        ]}
+                        boundBoxFunc={(oldBox, newBox) => {
+                          if (newBox.width < 20 || newBox.height < 20) return oldBox;
+                          return newBox;
+                        }}
+                      />
+                    </Layer>
+                  </Stage>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Clique no item para mover, redimensionar e rotacionar.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {step === "contact" && selectedProduct && (
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-foreground">Seus dados</h3>
+              <p className="text-sm text-muted-foreground">
+                Ultima etapa: confirme seus dados para salvar no backend e/ou enviar pelo WhatsApp.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-4">
+              <div className="rounded-xl border border-border bg-background/80 p-4">
+                <div className="grid md:grid-cols-2 gap-3">
+                  <label className="text-sm text-muted-foreground">
+                    Nome completo
+                    <input
+                      value={customer.name}
+                      onChange={(event) =>
+                        setCustomer((previous) => ({ ...previous, name: event.target.value }))
+                      }
+                      placeholder="Digite seu nome"
+                      className="mt-1 w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                    />
                   </label>
-                  <textarea
-                    rows={3}
-                    placeholder={order.hasArt ? "Descreva sua arte (enviaremos detalhes via WhatsApp)" : "Descreva sua ideia..."}
-                    value={order.artDescription}
-                    onChange={(e) => updateOrder({ artDescription: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Step 3: Contact */}
-        {currentStep === "contact" && (
-          <div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Seus Dados</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Preencha seus dados para enviarmos o orçamento.
-            </p>
-            <div className="grid md:grid-cols-2 gap-4 max-w-2xl">
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Nome completo *</label>
-                <input
-                  type="text"
-                  value={order.name}
-                  onChange={(e) => updateOrder({ name: e.target.value })}
-                  placeholder="Seu nome"
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">WhatsApp / Telefone *</label>
-                <input
-                  type="tel"
-                  value={order.phone}
-                  onChange={(e) => updateOrder({ phone: e.target.value })}
-                  placeholder="(21) 99999-9999"
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">E-mail</label>
-                <input
-                  type="email"
-                  value={order.email}
-                  onChange={(e) => updateOrder({ email: e.target.value })}
-                  placeholder="seu@email.com"
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Cidade/UF *</label>
-                <input
-                  type="text"
-                  value={order.city}
-                  onChange={(e) => updateOrder({ city: e.target.value })}
-                  placeholder="Rio de Janeiro, RJ"
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Observações</label>
-                <textarea
-                  rows={2}
-                  value={order.notes}
-                  onChange={(e) => updateOrder({ notes: e.target.value })}
-                  placeholder="Prazo desejado, outras especificações..."
-                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:ring-2 focus:ring-secondary/30 focus:border-secondary outline-none resize-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+                  <label className="text-sm text-muted-foreground">
+                    WhatsApp
+                    <input
+                      value={customer.whatsapp}
+                      onChange={(event) =>
+                        setCustomer((previous) => ({ ...previous, whatsapp: event.target.value }))
+                      }
+                      placeholder="(00) 00000-0000"
+                      className="mt-1 w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                    />
+                  </label>
 
-        {/* Step 4: Confirm */}
-        {currentStep === "confirm" && (
-          <div>
-            <h3 className="text-xl font-bold text-foreground mb-2">Confirmar Pedido</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Revise seu pedido e envie para nosso WhatsApp.
-            </p>
-            <div className="max-w-2xl bg-muted/50 rounded-xl p-6 space-y-3">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Produto</p>
-                  <p className="text-sm font-semibold text-foreground">{order.categoryName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Tamanho</p>
-                  <p className="text-sm font-semibold text-foreground">{order.size}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Quantidade</p>
-                  <p className="text-sm font-semibold text-foreground">{order.quantity}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Cor</p>
-                  <p className="text-sm font-semibold text-foreground">{order.color || "A definir"}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Arte</p>
-                  <p className="text-sm font-semibold text-foreground">{order.hasArt ? "Sim, tenho arte" : "Preciso criar"}</p>
-                </div>
-                {order.artDescription && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">Descrição</p>
-                    <p className="text-sm text-foreground">{order.artDescription}</p>
-                  </div>
-                )}
-              </div>
-              <hr className="border-border" />
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Nome</p>
-                  <p className="text-sm font-semibold text-foreground">{order.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">WhatsApp</p>
-                  <p className="text-sm font-semibold text-foreground">{order.phone}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Cidade/UF</p>
-                  <p className="text-sm font-semibold text-foreground">{order.city}</p>
-                </div>
-                {order.email && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">E-mail</p>
-                    <p className="text-sm text-foreground">{order.email}</p>
-                  </div>
-                )}
-              </div>
-            </div>
+                  <label className="text-sm text-muted-foreground">
+                    Email
+                    <input
+                      value={customer.email}
+                      onChange={(event) =>
+                        setCustomer((previous) => ({ ...previous, email: event.target.value }))
+                      }
+                      placeholder="voce@empresa.com"
+                      className="mt-1 w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                    />
+                  </label>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center">
-              <Button variant="cta" size="lg" onClick={handleSendToWhatsApp} className="gap-2 w-full sm:w-auto">
-                <MessageCircle className="h-5 w-5" />
-                Enviar pedido pelo WhatsApp
-              </Button>
-              <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-secondary hover:underline"
-              >
-                <Phone className="h-4 w-4" />
-                Abrir WhatsApp da Barretos
-              </a>
+                  <label className="text-sm text-muted-foreground">
+                    Cidade
+                    <input
+                      value={customer.city}
+                      onChange={(event) =>
+                        setCustomer((previous) => ({ ...previous, city: event.target.value }))
+                      }
+                      placeholder="Cidade e UF"
+                      className="mt-1 w-full h-10 rounded-lg border border-border bg-background px-3 text-sm"
+                    />
+                  </label>
+
+                  <label className="text-sm text-muted-foreground md:col-span-2">
+                    Observacoes
+                    <textarea
+                      rows={4}
+                      value={customer.notes}
+                      onChange={(event) =>
+                        setCustomer((previous) => ({ ...previous, notes: event.target.value }))
+                      }
+                      placeholder="Prazo, referencia de arte, detalhes extras"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-foreground">
+                    Integracao backend: {hasOrderApi ? "ativa" : "nao configurada"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {hasOrderApi
+                      ? "Os pedidos sao enviados via POST para VITE_ORDER_API_URL antes da etapa de WhatsApp."
+                      : "Defina VITE_ORDER_API_URL para salvar pedidos no backend alem do WhatsApp."}
+                  </p>
+                  {hasOrderApi && (
+                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={sendViaWhatsApp}
+                        onChange={(event) => setSendViaWhatsApp(event.target.checked)}
+                      />
+                      Enviar tambem no WhatsApp apos salvar no backend
+                    </label>
+                  )}
+                </div>
+
+                {backendMessage && <p className="mt-3 text-sm font-semibold text-secondary">{backendMessage}</p>}
+                {formError && <p className="mt-3 text-sm font-semibold text-destructive">{formError}</p>}
+                {successMessage && <p className="mt-3 text-sm font-semibold text-green-700">{successMessage}</p>}
+              </div>
+
+              <aside className="rounded-xl border border-border bg-muted/40 p-4 space-y-2">
+                <h4 className="font-semibold text-foreground">Resumo final</h4>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Produto</span>
+                  <span className="font-semibold">{selectedProduct.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Quantidade total</span>
+                  <span className="font-semibold">{totalQty}</span>
+                </div>
+
+                <div className="pt-1 border-t border-border">
+                  {filledSizes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nenhum tamanho selecionado.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {filledSizes.map((item) => (
+                        <div key={item.size} className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">{item.size}</span>
+                          <span className="font-semibold">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Preco unitario</span>
+                  <span className="font-semibold">{money(unitPrice)}</span>
+                </div>
+                <div className="flex justify-between font-semibold border-t border-border pt-2">
+                  <span>Total estimado</span>
+                  <span className="text-secondary">{money(totalPrice)}</span>
+                </div>
+              </aside>
             </div>
-          </div>
+          </section>
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="px-6 md:px-8 pb-6 flex justify-between items-center">
+      <div className="px-6 md:px-8 pb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         {currentStepIndex > 0 ? (
-          <Button variant="outline" onClick={prevStep} className="gap-2">
+          <Button variant="outline" onClick={goBack} className="gap-2 w-full sm:w-auto">
             <ChevronLeft className="h-4 w-4" />
             Voltar
           </Button>
         ) : (
           <div />
         )}
-        {currentStep !== "confirm" && (
+
+        {step !== "contact" ? (
           <Button
             variant="cta"
-            onClick={nextStep}
-            disabled={!canProceed()}
-            className="gap-2"
+            onClick={goNext}
+            disabled={isSubmitting || !canProceedFromStep(step)}
+            className="gap-2 w-full sm:w-auto"
           >
-            Próximo
+            Proximo
             <ChevronRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            variant={!hasOrderApi || sendViaWhatsApp ? "whatsapp" : "cta"}
+            onClick={handleSubmitOrder}
+            disabled={isSubmitting || !canProceedFromStep("contact")}
+            className="gap-2 w-full sm:w-auto"
+          >
+            <MessageCircle className="h-4 w-4" />
+            {isSubmitting
+              ? "Enviando..."
+              : !hasOrderApi
+                ? "Enviar pedido no WhatsApp"
+                : sendViaWhatsApp
+                  ? "Salvar e enviar no WhatsApp"
+                  : "Salvar pedido no backend"}
           </Button>
         )}
       </div>
     </div>
   );
 }
+
+
+

@@ -2,35 +2,36 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { PersonalizeApp } from "@/components/PersonalizeApp";
 import { generateWhatsAppLink, trackWhatsAppClick } from "@/lib/constants";
-import { 
-  Sparkles, 
-  Palette, 
-  CreditCard, 
-  Truck, 
+import {
   ArrowRight,
+  ClipboardList,
+  Palette,
   Phone,
+  Shirt,
+  Sparkles,
+  UserRound,
 } from "lucide-react";
 
 const steps = [
   {
-    icon: Palette,
+    icon: Shirt,
     title: "Escolha o Produto",
-    description: "Selecione entre camisetas, polos, moletons e muito mais. Defina cor, tamanho e quantidade.",
+    description: "Selecione camiseta, polo, bone, ecobag ou moletom para iniciar seu pedido.",
   },
   {
-    icon: Sparkles,
-    title: "Personalize",
-    description: "Envie sua arte ou crie do zero. Use nosso editor para posicionar e visualizar o resultado.",
+    icon: ClipboardList,
+    title: "Detalhes do Pedido",
+    description: "Defina quantidades por tamanho com total automatico por produto.",
   },
   {
-    icon: CreditCard,
-    title: "Pague Online",
-    description: "Finalize com pagamento seguro via PIX, boleto ou cartão de crédito.",
+    icon: Palette,
+    title: "Personalizar",
+    description: "Edite cor, logo, texto e local da estampa no editor visual.",
   },
   {
-    icon: Truck,
-    title: "Receba em Casa",
-    description: "Produzimos com carinho e enviamos para qualquer lugar do Brasil.",
+    icon: UserRound,
+    title: "Seus Dados",
+    description: "Finalize com seus dados e envie o pedido direto para o WhatsApp.",
   },
 ];
 
@@ -38,54 +39,46 @@ export default function Personalize() {
   const handleWhatsAppClick = () => {
     trackWhatsAppClick("Personalizador Online", "Personalize", "page-cta");
     window.open(
-      generateWhatsAppLink("Personalizador Online - Dúvidas", "Personalize", "page-cta"),
-      "_blank"
+      generateWhatsAppLink("Personalizador Online - Duvidas", "Personalize", "page-cta"),
+      "_blank",
     );
   };
 
   return (
     <Layout>
-      {/* Hero */}
       <section className="bg-hero-gradient text-primary-foreground py-16 md:py-24">
         <div className="container-custom">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 text-sm mb-6">
               <Sparkles className="h-4 w-4" />
-              Novo: Personalizador Online
+              Novo: fluxo completo de personalizacao
             </div>
-            
+
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 text-white">
-              Personalize, pague e receba:
+              Monte seu pedido
               <br />
-              <span className="text-[hsl(47_93%_60%)]">do jeito certo e do seu jeito.</span>
+              <span className="text-[hsl(47_93%_60%)]">do seu jeito e em poucos passos.</span>
             </h1>
-            
+
             <p className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-              Escolha o produto, envie sua arte ou crie do zero, pague online 
-              e receba em casa. Simples assim.
+              Escolha o produto, ajuste as quantidades por tamanho, personalize a arte e envie seus
+              dados sem sair da pagina.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                variant="hero" 
-                size="xl" 
+              <Button
+                variant="hero"
+                size="xl"
                 className="gap-2"
                 onClick={() => {
                   const appSlot = document.getElementById("personalize-app-slot");
-                  if (appSlot) {
-                    appSlot.scrollIntoView({ behavior: "smooth" });
-                  }
+                  if (appSlot) appSlot.scrollIntoView({ behavior: "smooth" });
                 }}
               >
                 <Sparkles className="h-5 w-5" />
-                Abrir personalizador
+                Abrir studio
               </Button>
-              <Button 
-                variant="heroOutline" 
-                size="xl" 
-                onClick={handleWhatsAppClick}
-                className="gap-2"
-              >
+              <Button variant="heroOutline" size="xl" onClick={handleWhatsAppClick} className="gap-2">
                 <Phone className="h-5 w-5" />
                 Preciso de ajuda
               </Button>
@@ -94,13 +87,12 @@ export default function Personalize() {
         </div>
       </section>
 
-      {/* How it works */}
       <section className="section-padding bg-background">
         <div className="container-custom">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-12 text-center">
             Como funciona
           </h2>
-          
+
           <div className="grid md:grid-cols-4 gap-6 mb-16">
             {steps.map((step, index) => (
               <div key={step.title} className="relative">
@@ -125,15 +117,12 @@ export default function Personalize() {
         </div>
       </section>
 
-      {/* App Slot */}
       <section className="section-padding bg-muted/50">
         <div className="container-custom">
           <div className="text-center mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-              Monte seu pedido
-            </h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Monte seu pedido</h2>
             <p className="text-muted-foreground">
-              Escolha, personalize e envie seu pedido em poucos passos.
+              Produto, detalhes, personalizacao e dados finais em um unico fluxo.
             </p>
           </div>
           <div id="personalize-app-slot">
@@ -142,44 +131,35 @@ export default function Personalize() {
         </div>
       </section>
 
-      {/* FAQ/Info */}
       <section className="section-padding bg-background">
         <div className="container-custom">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-foreground mb-8 text-center">
-              Dúvidas Frequentes
-            </h2>
-            
+            <h2 className="text-2xl font-bold text-foreground mb-8 text-center">Duvidas frequentes</h2>
+
             <div className="space-y-4">
               <div className="card-elevated p-6">
                 <h3 className="font-semibold text-foreground mb-2">
                   Posso personalizar qualquer quantidade?
                 </h3>
                 <p className="text-muted-foreground">
-                  Sim! No personalizador online você pode fazer pedidos a partir de 1 unidade. 
-                  Para grandes quantidades, recomendamos solicitar orçamento via WhatsApp para 
-                  condições especiais.
+                  Sim. O fluxo aceita desde 1 unidade e calcula o total automaticamente conforme os
+                  tamanhos escolhidos.
                 </p>
               </div>
-              
+
               <div className="card-elevated p-6">
-                <h3 className="font-semibold text-foreground mb-2">
-                  Como envio minha arte?
-                </h3>
+                <h3 className="font-semibold text-foreground mb-2">Como envio minha arte?</h3>
                 <p className="text-muted-foreground">
-                  Após preencher o personalizador, você será redirecionado ao nosso WhatsApp onde pode 
-                  enviar sua arte diretamente. Aceitamos PNG, JPG e PDF em alta resolução.
+                  Na etapa "Personalizar" voce faz upload de logo/arte, ajusta o posicionamento e
+                  depois envia o pedido no WhatsApp.
                 </p>
               </div>
-              
+
               <div className="card-elevated p-6">
-                <h3 className="font-semibold text-foreground mb-2">
-                  Qual o prazo de entrega?
-                </h3>
+                <h3 className="font-semibold text-foreground mb-2">Qual o prazo de entrega?</h3>
                 <p className="text-muted-foreground">
-                  O prazo varia de acordo com a quantidade e destino. Em média, 
-                  7 a 15 dias úteis após a aprovação do pagamento. O prazo exato 
-                  será informado durante a finalização do pedido.
+                  O prazo depende de quantidade e destino. Em media, 7 a 15 dias uteis apos
+                  aprovacao e confirmacao com o time comercial.
                 </p>
               </div>
             </div>
