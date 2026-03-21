@@ -60,6 +60,7 @@ type CanvasNode = {
 
 type StageRefShape = {
   findOne: (selector: string) => unknown;
+  toDataURL?: (config?: { pixelRatio?: number }) => string;
 };
 
 type TransformerRefShape = {
@@ -82,7 +83,21 @@ type PrintProfilesBySide = Record<
   Record<string, { label: string; rect: { x: number; y: number; w: number; h: number } }>
 >;
 
+type UploadedArtwork = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  dataUrl: string;
+  objectUrl: string;
+  side: Side;
+  addedAt: string;
+};
+
+type ArtworkForBackend = Omit<UploadedArtwork, "objectUrl">;
+
 type OrderApiPayload = {
+  orderCode: string;
   submittedAt: string;
   source: string;
   product: {
@@ -96,10 +111,25 @@ type OrderApiPayload = {
     totalQty: number;
     totalPrice: number;
   };
+  shipping: {
+    freight: "to_be_calculated";
+    note: string;
+  };
   customization: {
     sideProfiles: Record<Side, string>;
+    sidePrintAreas: Record<Side, { label: string; rect: { x: number; y: number; w: number; h: number } }>;
     sideItemsCount: Record<Side, number>;
     sideItems: Record<Side, DesignItem[]>;
+    stage: { width: number; height: number };
+    mockups: Partial<Record<Side, string>>;
+    previews: Partial<Record<Side, string>>;
+  };
+  assets: {
+    artworks: ArtworkForBackend[];
+  };
+  requestedOutputs: {
+    package: "zip";
+    documents: string[];
   };
   customer: {
     name: string;
@@ -115,6 +145,10 @@ type OrderApiResponse = {
   orderId?: string;
   reference?: string;
   message?: string;
+  drive?: {
+    uploaded?: boolean;
+    link?: string;
+  };
 };
 
 type OrderApiResult = {
@@ -122,10 +156,17 @@ type OrderApiResult = {
   skipped?: boolean;
   orderId?: string;
   error?: string;
+  message?: string;
 };
 
 const DEFAULT_SIDES: Side[] = ["front", "back"];
-const ORDER_API_URL = String(import.meta.env.VITE_ORDER_API_URL ?? "").trim();
+const IS_LOCALHOST =
+  typeof window !== "undefined" &&
+  ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const ORDER_API_URL = String(
+  import.meta.env.VITE_ORDER_API_URL ?? (IS_LOCALHOST ? "/api/orders" : ""),
+).trim();
+const ORDER_API_HEALTH_URL = ORDER_API_URL ? ORDER_API_URL.replace(/\/orders\/?$/, "/health") : "";
 
 const PRODUCTS: ProductOption[] = [
   {
@@ -153,7 +194,7 @@ const PRODUCTS: ProductOption[] = [
     unitPrice: 39.9,
     sizes: ["UN"],
     sides: ["front", "back"],
-    catalogImageId: "almofadas-bones",
+    catalogImageId: "bones",
   },
   {
     id: "ecobag",
@@ -341,6 +382,32 @@ function money(value: number): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function generateOrderCode(): string {
+  const now = new Date();
+  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
+    now.getDate(),
+  ).padStart(2, "0")}`;
+  const randomCode = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `BCS-${ymd}-${randomCode}`;
+}
+
+function waitForNextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo para envio ao backend."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function createQtyMap(sizes: string[]): Record<string, number> {
@@ -600,6 +667,8 @@ export function PersonalizeApp() {
   const [backendMessage, setBackendMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sendViaWhatsApp, setSendViaWhatsApp] = useState(true);
+  const [uploadedArtworks, setUploadedArtworks] = useState<Record<string, UploadedArtwork>>({});
+  const [stagePreviews, setStagePreviews] = useState<Partial<Record<Side, string>>>({});
 
   const stageRef = useRef<unknown>(null);
   const trRef = useRef<unknown>(null);
@@ -611,7 +680,7 @@ export function PersonalizeApp() {
 
   const sides = useMemo<Side[]>(() => selectedProduct?.sides ?? DEFAULT_SIDES, [selectedProduct]);
   const unitPrice = selectedProduct?.unitPrice ?? 0;
-  const hasOrderApi = ORDER_API_URL.length > 0;
+  const hasOrderApi = Boolean(ORDER_API_URL);
   const activeProductId = selectedProduct?.id ?? "tshirt";
 
   const totalQty = useMemo(
@@ -659,6 +728,23 @@ export function PersonalizeApp() {
   const printArea = productPrintProfiles[side][printKey].rect;
   const printOptions = productPrintProfiles[side];
 
+  const resolvePrintProfileBySide = (targetSide: Side) => {
+    const sideProfiles = productPrintProfiles[targetSide];
+    const fallbackKey = Object.keys(sideProfiles)[0] ?? "center";
+    const chosenKey = printProfile[targetSide];
+    const profileKey =
+      chosenKey && chosenKey in sideProfiles
+        ? chosenKey
+        : fallbackKey;
+    const profile = sideProfiles[profileKey];
+
+    return {
+      profileKey,
+      label: profile.label,
+      rect: profile.rect,
+    };
+  };
+
   const currentStepIndex = STEP_ORDER.findIndex((stepItem) => stepItem.id === step);
 
   const canProceedFromStep = (stepId: StepId) => {
@@ -681,8 +767,42 @@ export function PersonalizeApp() {
     return true;
   };
 
-  const goNext = () => {
+  const captureCustomizePreviews = async (): Promise<Partial<Record<Side, string>>> => {
+    const stage = stageRef.current as StageRefShape | null;
+    if (!stage || !stage.toDataURL) return {};
+
+    const previews: Partial<Record<Side, string>> = {};
+    const originalSide = side;
+    const sidesToCapture = selectedProduct?.sides ?? DEFAULT_SIDES;
+
+    setSelectedId(null);
+
+    for (const sideName of sidesToCapture) {
+      setSide(sideName);
+      await waitForNextPaint();
+
+      const activeStage = stageRef.current as StageRefShape | null;
+      if (activeStage?.toDataURL) {
+        previews[sideName] = activeStage.toDataURL({ pixelRatio: 2 });
+      }
+    }
+
+    setSide(originalSide);
+    await waitForNextPaint();
+
+    return previews;
+  };
+
+  const goNext = async () => {
     if (!canProceedFromStep(step)) return;
+
+    if (step === "customize") {
+      const previews = await captureCustomizePreviews();
+      if (Object.keys(previews).length > 0) {
+        setStagePreviews(previews);
+      }
+    }
+
     const next = STEP_ORDER[currentStepIndex + 1];
     if (next) setStep(next.id);
   };
@@ -695,6 +815,13 @@ export function PersonalizeApp() {
   useEffect(() => {
     if (!selectedProduct) return;
 
+    setUploadedArtworks((previous) => {
+      Object.values(previous).forEach((artwork) => {
+        if (artwork.objectUrl) URL.revokeObjectURL(artwork.objectUrl);
+      });
+      return {};
+    });
+    setStagePreviews({});
     setQtyBySize(createQtyMap(selectedProduct.sizes));
     setSide(selectedProduct.sides[0] ?? "front");
     setPrintProfile({ front: "center", back: "center" });
@@ -772,14 +899,27 @@ export function PersonalizeApp() {
       },
     }));
 
+    setUploadedArtworks((previous) => {
+      const artwork = previous[selectedId];
+      if (artwork?.objectUrl) {
+        URL.revokeObjectURL(artwork.objectUrl);
+      }
+
+      const next = { ...previous };
+      delete next[selectedId];
+      return next;
+    });
+
     setSelectedId(null);
   };
 
-  const onUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const onUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const uploadSide = side;
     const src = URL.createObjectURL(file);
+    const dataUrl = await readFileAsDataUrl(file).catch(() => "");
     const id = `img_${Date.now()}`;
 
     const image = new window.Image();
@@ -804,8 +944,22 @@ export function PersonalizeApp() {
 
       setDesigns((previous) => ({
         ...previous,
-        [side]: {
-          items: [...previous[side].items, newItem],
+        [uploadSide]: {
+          items: [...previous[uploadSide].items, newItem],
+        },
+      }));
+
+      setUploadedArtworks((previous) => ({
+        ...previous,
+        [id]: {
+          id,
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+          dataUrl,
+          objectUrl: src,
+          side: uploadSide,
+          addedAt: new Date().toISOString(),
         },
       }));
 
@@ -813,7 +967,10 @@ export function PersonalizeApp() {
       setEditorError("");
     };
 
-    image.onerror = () => setEditorError("Falha ao carregar a imagem enviada.");
+    image.onerror = () => {
+      URL.revokeObjectURL(src);
+      setEditorError("Falha ao carregar a imagem enviada.");
+    };
     event.target.value = "";
   };
 
@@ -846,10 +1003,15 @@ export function PersonalizeApp() {
         .filter((item) => item.value > 0)
     : [];
 
-  const buildOrderPayload = (): OrderApiPayload | null => {
+  const buildOrderPayload = (orderCode: string): OrderApiPayload | null => {
     if (!selectedProduct) return null;
 
+    const frontProfile = resolvePrintProfileBySide("front");
+    const backProfile = resolvePrintProfileBySide("back");
+    const artworks = Object.values(uploadedArtworks).map(({ objectUrl: _discardedObjectUrl, ...asset }) => asset);
+
     return {
+      orderCode,
       submittedAt: new Date().toISOString(),
       source: "personalizador-online",
       product: {
@@ -863,10 +1025,18 @@ export function PersonalizeApp() {
         totalQty,
         totalPrice,
       },
+      shipping: {
+        freight: "to_be_calculated",
+        note: "Frete calculado separadamente apos validacao do pedido.",
+      },
       customization: {
         sideProfiles: {
-          front: printProfile.front,
-          back: printProfile.back,
+          front: frontProfile.profileKey,
+          back: backProfile.profileKey,
+        },
+        sidePrintAreas: {
+          front: { label: frontProfile.label, rect: frontProfile.rect },
+          back: { label: backProfile.label, rect: backProfile.rect },
         },
         sideItemsCount: {
           front: designs.front.items.length,
@@ -876,6 +1046,25 @@ export function PersonalizeApp() {
           front: designs.front.items,
           back: designs.back.items,
         },
+        stage: { width: CANVAS_W, height: CANVAS_H },
+        mockups: {
+          front: frontMockupSrc,
+          back: backMockupSrc,
+        },
+        previews: stagePreviews,
+      },
+      assets: {
+        artworks,
+      },
+      requestedOutputs: {
+        package: "zip",
+        documents: [
+          "pdf_front_page",
+          "pdf_back_page",
+          "pdf_print_positions",
+          "order_spec_json",
+          "artwork_originals",
+        ],
       },
       customer: {
         name: customer.name,
@@ -887,10 +1076,40 @@ export function PersonalizeApp() {
     };
   };
 
+  const downloadOrderBackup = (payload: OrderApiPayload, orderCode: string) => {
+    try {
+      const fileName = `${orderCode || "pedido"}-backup.json`;
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const submitOrderToApi = async (payload: OrderApiPayload): Promise<OrderApiResult> => {
     if (!hasOrderApi) return { ok: false, skipped: true };
 
     try {
+      if (ORDER_API_HEALTH_URL) {
+        const health = await fetch(ORDER_API_HEALTH_URL, { method: "GET" });
+        if (!health.ok) {
+          return {
+            ok: false,
+            error: `Backend indisponivel (${health.status}). Rode \`npm run dev:api\` para salvar localmente.`,
+          };
+        }
+      }
+
       const response = await fetch(ORDER_API_URL, {
         method: "POST",
         headers: {
@@ -920,16 +1139,22 @@ export function PersonalizeApp() {
       return {
         ok: true,
         orderId: body.orderId || body.id || body.reference,
+        message: body.message || (body.drive?.uploaded ? "Pedido salvo e enviado ao Google Drive." : "Pedido salvo no backend."),
       };
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erro ao enviar pedido para o backend.";
+      const isNetworkFailure = /Failed to fetch|NetworkError|ERR_CONNECTION_REFUSED/i.test(message);
       return {
         ok: false,
-        error: error instanceof Error ? error.message : "Erro ao enviar pedido para o backend.",
+        error: isNetworkFailure
+          ? "Falha de conexao com o backend. Inicie a API com `npm run dev:api` (ou `npm run dev:full`)."
+          : message,
       };
     }
   };
 
-  const buildWhatsAppMessage = (orderId?: string) => {
+  const buildWhatsAppMessage = (orderCode: string) => {
     if (!selectedProduct) return "";
 
     const qtyLines =
@@ -938,11 +1163,12 @@ export function PersonalizeApp() {
 
     return (
       `Ola! Vim pelo Personalizador Online da BARRETOS e quero fechar meu pedido.\n\n` +
-      `${orderId ? `Referencia backend: ${orderId}\n` : ""}` +
+      `Codigo do pedido: ${orderCode}\n` +
       `Produto: ${selectedProduct.name}\n` +
       `Quantidade por tamanho:\n${qtyLines}\n` +
       `Valor unitario: ${money(unitPrice)}\n` +
-      `Total estimado: ${money(totalPrice)}\n\n` +
+      `Total estimado (produtos): ${money(totalPrice)} + frete\n` +
+      `Frete: calculado separadamente\n\n` +
       `Personalizacao:\n` +
       `- Cor base: ${productColor}\n` +
       `- Frente: ${designs.front.items.length} elemento(s)\n` +
@@ -973,27 +1199,35 @@ export function PersonalizeApp() {
     setSuccessMessage("");
     setBackendMessage("");
 
+    const localOrderCode = generateOrderCode();
     let apiResult: OrderApiResult = { ok: false, skipped: true };
-    const payload = buildOrderPayload();
+    const payload = buildOrderPayload(localOrderCode);
+    let backupDownloaded = false;
 
     if (payload && hasOrderApi) {
       apiResult = await submitOrderToApi(payload);
+      const finalOrderCode = apiResult.orderId || payload.orderCode;
 
       if (apiResult.ok) {
         setBackendMessage(
-          apiResult.orderId
-            ? `Pedido salvo no backend. Referencia: ${apiResult.orderId}.`
-            : "Pedido salvo no backend com sucesso.",
+          `${apiResult.message || "Pedido salvo no backend."} Codigo: ${finalOrderCode}.`,
         );
       } else {
         setFormError(apiResult.error || "Nao foi possivel salvar no backend.");
+        backupDownloaded = downloadOrderBackup(payload, finalOrderCode);
+        if (backupDownloaded) {
+          setBackendMessage(
+            `Backend indisponivel. Backup local baixado (${finalOrderCode}-backup.json).`,
+          );
+        }
       }
     }
 
     const shouldOpenWhatsApp = !hasOrderApi || sendViaWhatsApp;
+    const finalOrderCode = apiResult.orderId || payload?.orderCode || localOrderCode;
 
     if (shouldOpenWhatsApp) {
-      const message = buildWhatsAppMessage(apiResult.orderId);
+      const message = buildWhatsAppMessage(finalOrderCode);
       trackWhatsAppClick(selectedProduct.name, "Personalize", "order-submit");
       window.open(
         `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
@@ -1004,12 +1238,16 @@ export function PersonalizeApp() {
       if (apiResult.ok) {
         setSuccessMessage("Pedido salvo e enviado no WhatsApp com sucesso.");
       } else if (hasOrderApi) {
-        setSuccessMessage("Pedido enviado no WhatsApp. O backend nao confirmou o salvamento.");
+        setSuccessMessage(
+          backupDownloaded
+            ? "Pedido enviado no WhatsApp. O backend falhou, mas um backup .json foi baixado."
+            : "Pedido enviado no WhatsApp. O backend nao confirmou o salvamento.",
+        );
       } else {
         setSuccessMessage("Pedido enviado para o WhatsApp com sucesso.");
       }
     } else if (apiResult.ok) {
-      setSuccessMessage("Pedido salvo no backend com sucesso.");
+      setSuccessMessage(`Pedido salvo no backend com sucesso. Codigo: ${finalOrderCode}.`);
     }
 
     setIsSubmitting(false);
@@ -1314,6 +1552,18 @@ export function PersonalizeApp() {
               </aside>
 
               <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex justify-end">
+                  <Button
+                    variant="cta"
+                    onClick={goNext}
+                    disabled={isSubmitting || !canProceedFromStep(step)}
+                    className="gap-2"
+                  >
+                    Proximo
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full border border-border px-3 py-1 bg-background">{selectedProduct.name}</span>
                   <span className="rounded-full border border-border px-3 py-1 bg-background">Vista: {SIDE_LABEL[side]}</span>
@@ -1553,12 +1803,12 @@ export function PersonalizeApp() {
 
                 <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                   <p className="text-xs font-semibold text-foreground">
-                    Integracao backend: {hasOrderApi ? "ativa" : "nao configurada"}
+                    Integracao backend: {hasOrderApi ? `ativa (${ORDER_API_URL})` : "nao configurada"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {hasOrderApi
-                      ? "Os pedidos sao enviados via POST para VITE_ORDER_API_URL antes da etapa de WhatsApp."
-                      : "Defina VITE_ORDER_API_URL para salvar pedidos no backend alem do WhatsApp."}
+                      ? "Os pedidos sao enviados via POST com codigo unico, areas X/Y e arquivos de arte/previews. Para ambiente local, rode `npm run dev:api` (ou `npm run dev:full`)."
+                      : "Backend externo nao configurado para este ambiente. O pedido segue somente via WhatsApp."}
                   </p>
                   {hasOrderApi && (
                     <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
@@ -1608,9 +1858,10 @@ export function PersonalizeApp() {
                   <span className="font-semibold">{money(unitPrice)}</span>
                 </div>
                 <div className="flex justify-between font-semibold border-t border-border pt-2">
-                  <span>Total estimado</span>
+                  <span>Total estimado + frete</span>
                   <span className="text-secondary">{money(totalPrice)}</span>
                 </div>
+                <p className="text-xs text-muted-foreground">Frete calculado separadamente.</p>
               </aside>
             </div>
           </section>

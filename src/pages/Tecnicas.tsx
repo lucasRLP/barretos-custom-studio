@@ -95,7 +95,7 @@ export default function Tecnicas() {
       {/* Hero */}
       <section className="bg-hero-gradient text-primary-foreground py-16 md:py-20">
         <div className="container-custom">
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-white">
             Técnicas de Personalização
           </h1>
           <p className="text-lg text-primary-foreground/80 max-w-2xl">

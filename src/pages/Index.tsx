@@ -229,9 +229,9 @@ export default function Index() {
           </div>
 
           <div className="text-center">
-            <Button variant="cta" size="lg" onClick={handleQuickCTA} className="gap-2">
+            <Button variant="cta" size="lg" onClick={handleQuickCTA} className="gap-2 text-white">
               <Phone className="h-5 w-5" />
-              Quero orçamento em 60s
+              Orçamento rápido e fácil
             </Button>
           </div>
         </div>
@@ -269,8 +269,8 @@ export default function Index() {
       {/* Quick CTA Section */}
       <section className="py-16 bg-hero-gradient text-primary-foreground">
         <div className="container-custom text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Orçamento em 60 segundos
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+            Orçamento rápido e fácil
           </h2>
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl mx-auto">
             Envie sua demanda agora e receba uma proposta personalizada rapidamente.

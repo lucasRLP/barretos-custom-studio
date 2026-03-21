@@ -36,6 +36,24 @@ npm i
 npm run dev
 ```
 
+## Pedido do personalizador (backend local)
+
+Para salvar pedidos localmente, rode em terminais separados:
+- `npm run dev` (Frontend Vite na porta `8080`)
+- `npm run dev:api` (API local de pedidos na porta `8787`)
+
+Opcional: tente `npm run dev:full` para subir os dois com um comando.
+
+O endpoint usado pelo personalizador é `POST /api/orders`.
+
+Os pedidos ficam salvos localmente em:
+- `backend/orders/<CODIGO_DO_PEDIDO>/order.json`
+- `backend/orders/<CODIGO_DO_PEDIDO>/assets/*`
+- `backend/orders/<CODIGO_DO_PEDIDO>/previews/*`
+- `backend/orders/<CODIGO_DO_PEDIDO>/documents/<CODIGO>-ficha-tecnica.pdf`
+- `backend/orders/<CODIGO_DO_PEDIDO>/documents/print-positions.json`
+- `backend/orders/<CODIGO_DO_PEDIDO>.zip`
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

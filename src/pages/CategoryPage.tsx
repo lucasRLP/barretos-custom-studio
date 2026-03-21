@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants";
 import { Phone, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getProductImage } from "@/lib/productImages";
 
 const tagColors = ["chip-blue", "chip-green", "chip-yellow", "chip-lime"];
 
@@ -43,6 +44,9 @@ export default function CategoryPage() {
       "_blank"
     );
   };
+
+  const categoryImage = getProductImage(category.id);
+  const imageSrc = categoryImage !== "/placeholder.svg" ? categoryImage : category.image;
 
   return (
     <Layout>
@@ -104,7 +108,7 @@ export default function CategoryPage() {
             <div className="relative">
               <div className="aspect-square rounded-2xl overflow-hidden bg-primary-foreground/10">
                 <img
-                  src={category.image}
+                  src={imageSrc}
                   alt={category.name}
                   className="w-full h-full object-cover"
                 />

@@ -12,6 +12,10 @@ import jalecoAventalImg from "@/assets/products/jaleco-avental.png";
 import coposGarrafasImg from "@/assets/products/copos-garrafas.png";
 import almofadasBonesImg from "@/assets/products/almofadas-bones.png";
 import calcasBermudasImg from "@/assets/products/calcas-bermudas.png";
+import bonesImg from "@/assets/products/bones.png";
+import almofadasImg from "@/assets/products/almofadas.png";
+import brindesImg from "@/assets/products/brindes.png";
+import uniformesProfissionaisImg from "@/assets/products/uniformes-profissionais.png";
 
 export const PRODUCT_IMAGES: Record<string, string> = {
   "t-shirt": tshirtImg,
@@ -26,6 +30,10 @@ export const PRODUCT_IMAGES: Record<string, string> = {
   "jaleco-avental": jalecoAventalImg,
   "copos-garrafas": coposGarrafasImg,
   "almofadas-bones": almofadasBonesImg,
+  "bones": bonesImg,
+  "almofadas": almofadasImg,
+  "brindes": brindesImg,
+  "uniformes-profissionais": uniformesProfissionaisImg,
   "calcas-bermudas": calcasBermudasImg,
 };
 

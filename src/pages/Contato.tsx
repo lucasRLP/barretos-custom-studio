@@ -16,26 +16,26 @@ const contactInfo = [
   {
     icon: MapPin,
     title: "Endereço",
-    content: "São Paulo, SP - Brasil",
+    content: "Rua Senador Nabuco 40, Vila Isabel, Rio de Janeiro - RJ",
     subtitle: "(Atendemos todo o território nacional)",
   },
   {
     icon: Phone,
     title: "Telefone",
-    content: "(11) 99999-9999",
+    content: "(21) 99365-2442",
     subtitle: "WhatsApp disponível",
   },
   {
     icon: Mail,
     title: "E-mail",
-    content: "contato@barretosconfeccao.com.br",
+    content: "barretosuniformes@gmail.com",
     subtitle: "Respondemos em até 24h",
   },
   {
     icon: Clock,
     title: "Horário",
-    content: "Segunda a Sexta: 8h às 18h",
-    subtitle: "Sábado: 8h às 12h",
+    content: "Segunda a Sexta: 9h às 16h30",
+    subtitle: "Atendimento em horário comercial",
   },
 ];
 
@@ -56,7 +56,7 @@ export default function Contato() {
       {/* Hero */}
       <section className="bg-hero-gradient text-primary-foreground py-16 md:py-20">
         <div className="container-custom">
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-4 text-white">
             Fale Conosco
           </h1>
           <p className="text-lg text-primary-foreground/80 max-w-2xl">

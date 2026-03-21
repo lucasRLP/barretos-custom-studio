@@ -65,7 +65,7 @@ export default function Sobre() {
       <section className="bg-hero-gradient text-primary-foreground py-16 md:py-24">
         <div className="container-custom">
           <div className="max-w-3xl">
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-6">
+            <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-white">
               Sobre a Barretos
             </h1>
             <p className="text-lg md:text-xl text-primary-foreground/80">
