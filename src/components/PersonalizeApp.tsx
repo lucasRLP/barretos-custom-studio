@@ -673,6 +673,23 @@ export function PersonalizeApp() {
 
   const stageRef = useRef<unknown>(null);
   const trRef = useRef<unknown>(null);
+  const stageContainerRef = useRef<HTMLDivElement | null>(null);
+  const [stageScale, setStageScale] = useState(1);
+
+  useEffect(() => {
+    const el = stageContainerRef.current;
+    if (!el) return;
+    const compute = () => {
+      const available = el.clientWidth;
+      if (available <= 0) return;
+      const next = Math.min(1, available / CANVAS_W);
+      setStageScale(next);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const selectedProduct = useMemo(
     () => PRODUCTS.find((product) => product.id === selectedProductId) ?? null,
@@ -784,7 +801,9 @@ export function PersonalizeApp() {
 
       const activeStage = stageRef.current as StageRefShape | null;
       if (activeStage?.toDataURL) {
-        previews[sideName] = activeStage.toDataURL({ pixelRatio: 2 });
+        // pixelRatio compensa o escalonamento responsivo para que o preview
+        // capturado seja sempre ~1800x1800 (independente do tamanho do canvas em tela)
+        previews[sideName] = activeStage.toDataURL({ pixelRatio: 2 / Math.max(stageScale, 0.0001) });
       }
     }
 
@@ -1622,10 +1641,12 @@ export function PersonalizeApp() {
                   </span>
                 </div>
 
-                <div className="rounded-xl border border-border bg-background overflow-auto">
+                <div ref={stageContainerRef} className="rounded-xl border border-border bg-background overflow-hidden">
                   <Stage
-                    width={CANVAS_W}
-                    height={CANVAS_H}
+                    width={CANVAS_W * stageScale}
+                    height={CANVAS_H * stageScale}
+                    scaleX={stageScale}
+                    scaleY={stageScale}
                     ref={stageRef}
                     onMouseDown={(event) => {
                       const clickedOnEmpty = event.target === event.target.getStage();
