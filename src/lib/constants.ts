@@ -1,6 +1,38 @@
 // Configuração do WhatsApp
 export const WHATSAPP_NUMBER = "5521993652442";
 
+// Informações de contato
+export const COMPANY_INFO = {
+  name: "Barreto's Cia da Confecção",
+  shortName: "Barreto's",
+  phone: "(21) 99365-2442",
+  email: "barretosuniformes@gmail.com",
+  address: "Rua Senador Nabuco 40, Vila Isabel, Rio de Janeiro - RJ",
+  hours: "Seg - Sex: 9h às 16h30",
+  productionLeadTime: "5 dias úteis",
+  foundedYearsAgo: "30+",
+};
+
+// Faixa informativa (strip banner) — aparece no topo do site
+export const INFO_STRIPS = [
+  "Prazo de produção: 5 dias úteis",
+  "Sem pedido mínimo",
+  "Envio para todo o Brasil",
+  "Seg-Sex 9h às 16h30",
+];
+
+// Cores padrão disponíveis em estoque (customizador)
+export const STOCK_COLORS = [
+  { id: "preto",        name: "Preto",        hex: "#2A2A2E" },
+  { id: "branco",       name: "Branco",       hex: "#FFFFFF" },
+  { id: "off-white",    name: "Off-white",    hex: "#F5EFE0" },
+  { id: "azul-marinho", name: "Azul Marinho", hex: "#0A1E3F" },
+  { id: "azul-royal",   name: "Azul Royal",   hex: "#1E4BA8" },
+  { id: "vermelho",     name: "Vermelho",     hex: "#C8102E" },
+] as const;
+
+export const CUSTOM_COLOR_MIN_QTY = 10;
+
 // Categorias de produtos
 export const CATEGORIES = [
   {
@@ -145,12 +177,13 @@ export const FEATURED_CATEGORIES = [
   "brindes",
 ];
 
-// Técnicas de personalização
+// Técnicas de personalização — agora com foto ilustrativa
 export const TECHNIQUES = [
   {
     id: "dtf",
     name: "DTF",
     fullName: "Direct to Film",
+    image: "/techniques/dtf.png",
     description: "Impressão digital de alta definição transferida para o tecido. Ideal para designs coloridos e detalhados.",
     idealFor: "Fotos, degradês, designs multicoloridos",
     pros: ["Alta definição", "Cores vibrantes", "Qualquer quantidade", "Toque macio"],
@@ -161,6 +194,7 @@ export const TECHNIQUES = [
     id: "silk-screen",
     name: "Silk Screen",
     fullName: "Serigrafia",
+    image: "/techniques/silk-screen.png",
     description: "Técnica tradicional de impressão com telas e tintas especiais. Excelente para grandes quantidades.",
     idealFor: "Grandes tiragens, cores chapadas, uniformes",
     pros: ["Durabilidade extrema", "Cores vivas", "Custo baixo em escala", "Toque quase imperceptível"],
@@ -171,6 +205,7 @@ export const TECHNIQUES = [
     id: "sublimacao",
     name: "Sublimação",
     fullName: "Sublimação",
+    image: "/techniques/sublimacao.png",
     description: "Impressão que penetra no tecido através de calor. Perfeita para tecidos claros de poliéster.",
     idealFor: "Camisas esportivas, uniformes Dry Fit, full print",
     pros: ["Não descasca", "Full print possível", "Cores ilimitadas", "Toque zero"],
@@ -181,6 +216,7 @@ export const TECHNIQUES = [
     id: "bordado",
     name: "Bordado",
     fullName: "Bordado Computadorizado",
+    image: "/techniques/bordado.png",
     description: "Técnica premium com linhas bordadas no tecido. Elegância e durabilidade máxima.",
     idealFor: "Logos corporativos, uniformes premium, polos",
     pros: ["Extrema durabilidade", "Visual premium", "Tridimensionalidade", "Resistente a lavagens"],
@@ -191,6 +227,7 @@ export const TECHNIQUES = [
     id: "transfer",
     name: "Transfer",
     fullName: "Transfer Digital",
+    image: "/techniques/transfer.png",
     description: "Impressão transferida por calor. Versátil e econômica para pequenas quantidades.",
     idealFor: "Baixas quantidades, protótipos, fotos",
     pros: ["Qualquer quantidade", "Fotos e degradês", "Rápida produção"],
@@ -199,80 +236,120 @@ export const TECHNIQUES = [
   },
 ] as const;
 
-// Depoimentos
+// Depoimentos reais (textos literais extraídos de prints de WhatsApp)
 export const TESTIMONIALS = [
   {
-    id: 1,
-    name: "Ricardo Mendes",
-    company: "Tech Solutions",
-    city: "São Paulo, SP",
-    text: "Uniformes impecáveis para toda a equipe. Atendimento consultivo fez toda diferença na escolha do material.",
+    id: "marcel-levels",
+    name: "Marcel",
+    company: "Levels",
+    city: "Rio de Janeiro, RJ",
+    text: "Fala amigo! Chegaram as camisas aqui, fiz a contagem e tá tudo certinho! O pessoal aqui se amarrou nas blusas, esse tecido de suedine é muito bom!! A estampa também ficou num tamanho bom e linda na camisa, a estampa fica muito boa nessa técnica que você me indicou, só vamos fazer nessa a partir de agora.",
+    highlight: "Só vamos fazer nessa técnica a partir de agora.",
+    proof: "/testimonials/marcel-levels.jpg",
+    productTag: "Camisetas em suedine",
   },
   {
-    id: 2,
-    name: "Carla Oliveira",
-    company: "Escola Nova Era",
-    city: "Campinas, SP",
-    text: "Fornecedor oficial da nossa escola há 5 anos. Qualidade constante e entregas sempre no prazo.",
-  },
-  {
-    id: 3,
-    name: "Fernando Santos",
-    company: "CrossFit Arena",
-    city: "Ribeirão Preto, SP",
-    text: "As camisetas Dry Fit aguentam treinos intensos. Nossos alunos amam a qualidade.",
-  },
-  {
-    id: 4,
-    name: "Amanda Costa",
-    company: "Evento Conexões",
-    city: "Belo Horizonte, MG",
-    text: "Entrega para 500 camisetas em tempo recorde. Salvaram nosso evento corporativo!",
-  },
-  {
-    id: 5,
-    name: "Lucas Pereira",
-    company: "Distribuidora LP",
-    city: "Curitiba, PR",
-    text: "Brindes personalizados que realmente impressionam nossos clientes. Parceria de sucesso.",
+    id: "barbara-froneri",
+    name: "Bárbara",
+    company: "Froneri",
+    city: "Rio de Janeiro, RJ",
+    text: "Camisa do Faustino ficou ótima! Agradece o fornecedor!",
+    highlight: "Camisa do Faustino ficou ótima!",
+    proof: "/testimonials/barbara-froneri.jpg",
+    productTag: "Uniforme Froneri",
   },
 ];
 
-// Logos de clientes (placeholder)
+// Cases reais — fotos de clientes usando Barreto's
+export const CASES = [
+  {
+    id: "higino-jerj",
+    title: "Colégio Higino",
+    subtitle: "JERJ 2025 — Basquete Juvenil",
+    image: "/cases/higino-jerj.jpg",
+    tag: "Uniforme esportivo",
+  },
+  {
+    id: "rio-international-school",
+    title: "Rio International School",
+    subtitle: "Sports Day",
+    image: "/cases/rio-international-school.jpg",
+    tag: "Evento escolar",
+  },
+  {
+    id: "lp-glass",
+    title: "LP Glass",
+    subtitle: "Uniforme operacional",
+    image: "/cases/lp-glass.jpg",
+    tag: "Uniforme corporativo",
+  },
+  {
+    id: "yoga-voya",
+    title: "Voya",
+    subtitle: "Retiro de yoga",
+    image: "/cases/voya-yoga.jpg",
+    tag: "Evento",
+  },
+  {
+    id: "portal-natural",
+    title: "Portal Natural",
+    subtitle: "Retiro de yoga",
+    image: "/cases/portal-natural.jpg",
+    tag: "Evento",
+  },
+];
+
+// Logos de clientes confirmados
 export const CLIENT_LOGOS = [
-  { name: "Cliente 1", logo: "/placeholder.svg" },
-  { name: "Cliente 2", logo: "/placeholder.svg" },
-  { name: "Cliente 3", logo: "/placeholder.svg" },
-  { name: "Cliente 4", logo: "/placeholder.svg" },
-  { name: "Cliente 5", logo: "/placeholder.svg" },
-  { name: "Cliente 6", logo: "/placeholder.svg" },
+  { name: "NESTLÉ",                   logo: "/clients/nestle.png" },
+  { name: "Rio International School", logo: "/clients/rio-international-school.png" },
+  { name: "RJDI",                     logo: "/clients/rjdi.png" },
 ];
 
-// FAQs
+// Menções de marca — para badge "Trusted by" / mencionadas na reunião
+export const NOTABLE_CLIENTS = ["NESTLÉ", "Rio International School", "RJDI"];
+
+// FAQs — revisado com dados reais da reunião (prazo 5 dias, sem pedido mínimo, PIX/transferência/cartão, amostra física mín. 50 peças, horário, cores em estoque)
 export const FAQS = [
   {
-    question: "Qual a quantidade mínima de pedido (MOQ)?",
-    answer: "Para a maioria dos produtos, trabalhamos a partir de 10 unidades. Para alguns itens específicos como bordados, o mínimo pode variar. Entre em contato para sua demanda específica.",
+    question: "Qual é o pedido mínimo?",
+    answer:
+      "Não temos pedido mínimo! Produzimos a partir de 1 peça. Apenas cores fora do nosso estoque padrão exigem mínimo de 10 peças, pois precisam ser fabricadas sob encomenda.",
   },
   {
-    question: "Qual o prazo de produção e entrega?",
-    answer: "O prazo médio de produção é de 7 a 15 dias úteis, dependendo da quantidade e técnica escolhida. Entregas expressas podem ser negociadas. Enviamos para todo o Brasil.",
-  },
-  {
-    question: "Preciso ter a arte pronta?",
-    answer: "Não necessariamente! Podemos trabalhar com sua arte pronta ou nossa equipe de design pode criar ou adaptar seu logo/arte. Basta nos enviar suas referências.",
+    question: "Qual o prazo de produção?",
+    answer:
+      "5 dias úteis após aprovação da arte. Envio para todo o Brasil por transportadora ou Correios (prazo de frete à parte). Em casos urgentes, consulte a produção expressa.",
   },
   {
     question: "Quais formas de pagamento vocês aceitam?",
-    answer: "Trabalhamos com PIX, boleto bancário, transferência e cartão de crédito (para alguns casos). Condições especiais para pedidos recorrentes.",
+    answer:
+      "PIX, transferência bancária e cartão de crédito. Condições especiais para pedidos recorrentes.",
+  },
+  {
+    question: "Preciso ter a arte pronta?",
+    answer:
+      "Não é obrigatório — mas arte pronta agiliza a produção e reduz o custo. Caso não tenha, nossa equipe de design cria ou adapta seu logo/arte a partir de referências.",
+  },
+  {
+    question: "Posso pedir uma amostra antes?",
+    answer:
+      "Sim. Amostra virtual (mockup digital) é enviada gratuitamente em todo pedido, para aprovação antes da produção. Amostra física requer pedido mínimo de 50 peças.",
+  },
+  {
+    question: "Quais cores estão em pronta entrega?",
+    answer:
+      "Preto, branco, off-white, azul marinho, azul royal e vermelho — produção imediata. Outras cores sob encomenda, com mínimo de 10 peças.",
+  },
+  {
+    question: "Qual o horário de atendimento?",
+    answer:
+      "Segunda a sexta, das 9h às 16h30. Fora desse horário, deixe mensagem no WhatsApp — respondemos no próximo dia útil.",
   },
   {
     question: "Como escolher a melhor técnica de personalização?",
-    answer: "Depende do seu objetivo, quantidade e tipo de arte. Nossa equipe faz uma consultoria gratuita para indicar a melhor opção para seu projeto.",
-  },
-  {
-    question: "Posso fazer uma amostra antes do pedido completo?",
-    answer: "Sim! Oferecemos produção de amostras para aprovação antes da produção em escala. Consulte valores e prazos.",
+    answer:
+      "Depende do objetivo, quantidade e tipo de arte. Nossa equipe faz uma consultoria gratuita para indicar a melhor técnica (DTF, Silk Screen, Sublimação, Bordado ou Transfer) para cada projeto.",
   },
 ];
 
@@ -318,7 +395,7 @@ export function generateWhatsAppLink(
   pageName: string,
   position: string = "cta"
 ): string {
-  const message = `Olá! Vim pelo site da BARRETOS e quero orçamento.
+  const message = `Olá! Vim pelo site da BARRETO'S e quero orçamento.
 
 Produto/Categoria: ${category}
 Quantidade: ______
@@ -339,7 +416,6 @@ export function trackWhatsAppClick(
   pageName: string,
   position: string
 ): void {
-  // Disparar evento de analytics
   if (typeof window !== "undefined" && (window as any).gtag) {
     (window as any).gtag("event", "whatsapp_click", {
       category,
@@ -347,7 +423,7 @@ export function trackWhatsAppClick(
       position,
     });
   }
-  
-  // Console log para debug
+
+  // eslint-disable-next-line no-console
   console.log("WhatsApp Click:", { category, pageName, position });
 }

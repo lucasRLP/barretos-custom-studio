@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"npm:dev\" \"npm:dev:api\"",
-    "dev:api": "node server/index.js",
+    "dev:api": "node --env-file=.env server/index.js",
+    "drive:auth": "node --env-file=.env scripts/drive-auth.js",
+    "start": "node server/index.js",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -51,6 +53,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^5.1.0",
+    "googleapis": "^171.4.0",
     "input-otp": "^1.4.2",
     "konva": "^9.3.22",
     "lucide-react": "^0.462.0",

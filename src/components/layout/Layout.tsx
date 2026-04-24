@@ -1,5 +1,6 @@
 import { Header } from "./Header";
 import { Footer } from "./Footer";
+import { InfoStrip } from "./InfoStrip";
 import { WhatsAppFloat } from "../WhatsAppFloat";
 
 interface LayoutProps {
@@ -9,6 +10,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
+      <InfoStrip />
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />

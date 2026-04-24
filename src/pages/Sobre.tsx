@@ -1,12 +1,12 @@
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { generateWhatsAppLink, trackWhatsAppClick } from "@/lib/constants";
-import { 
-  Factory, 
-  Users, 
-  Award, 
-  Truck, 
-  Heart, 
+import {
+  Factory,
+  Users,
+  Award,
+  Truck,
+  Heart,
   Target,
   Phone,
 } from "lucide-react";
@@ -15,42 +15,41 @@ const values = [
   {
     icon: Factory,
     title: "Produção Própria",
-    description: "Fábrica própria com controle total de qualidade em cada etapa do processo.",
+    description: "Fábrica em Vila Isabel (RJ) com controle total de qualidade em cada etapa — do corte à finalização.",
   },
   {
     icon: Users,
     title: "Atendimento Consultivo",
-    description: "Equipe especializada para indicar a melhor solução para seu projeto.",
+    description: "Equipe especializada indica a melhor técnica e acabamento para o seu projeto, sem enrolação.",
   },
   {
     icon: Award,
     title: "Qualidade Garantida",
-    description: "Mais de 30 anos de experiência e milhares de clientes satisfeitos.",
+    description: "Mais de 30 anos estampando e confeccionando para escolas, indústrias e grandes marcas.",
   },
   {
     icon: Truck,
     title: "Entrega Nacional",
-    description: "Enviamos para todo o Brasil com segurança e prazo confiável.",
+    description: "Envio para todo o Brasil via transportadora ou Correios, com prazo confiável.",
   },
   {
     icon: Heart,
-    title: "Compromisso",
-    description: "Tratamos cada projeto como se fosse nosso, com dedicação total.",
+    title: "Negócio de Família",
+    description: "Tradição que passa de geração para geração. Cada pedido é tratado com o mesmo cuidado de sempre.",
   },
   {
     icon: Target,
-    title: "Foco no Cliente",
-    description: "Sua satisfação é nossa prioridade. Buscamos sempre superar expectativas.",
+    title: "Da Ideia à Entrega",
+    description: "Silk, DTF, sublimação, bordado e private label — solução completa em um só lugar.",
   },
 ];
 
 const timeline = [
-  { year: "1990", event: "Fundação da empresa com foco em uniformes escolares" },
-  { year: "2000", event: "Expansão para uniformes corporativos e eventos" },
-  { year: "2010", event: "Modernização com novas técnicas de personalização" },
-  { year: "2015", event: "Ampliação da capacidade produtiva e linha de brindes" },
-  { year: "2020", event: "Digitalização e atendimento nacional" },
-  { year: "Hoje", event: "Referência em personalizados com qualidade de fábrica" },
+  { year: "Anos 90", event: "Fundação da Barreto's com foco em uniformes escolares e serigrafia." },
+  { year: "2000", event: "Expansão para uniformes corporativos, eventos e linha de brindes." },
+  { year: "2010", event: "Modernização do parque fabril com novas técnicas de personalização." },
+  { year: "2020", event: "Digitalização, atendimento nacional e clientes como NESTLÉ, Rio International School e RJDI." },
+  { year: "Hoje", event: "Referência em personalizados B2B — 30+ anos estampando e confeccionando." },
 ];
 
 export default function Sobre() {
@@ -66,45 +65,54 @@ export default function Sobre() {
         <div className="container-custom">
           <div className="max-w-3xl">
             <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-white">
-              Sobre a Barretos
+              Sobre a Barreto's
             </h1>
             <p className="text-lg md:text-xl text-primary-foreground/80">
-              Há mais de 30 anos produzindo personalizados e uniformes com qualidade 
-              de fábrica. Uma história construída com dedicação, inovação e compromisso 
-              com cada cliente.
+              Há mais de 30 anos estampando e confeccionando uniformes e personalizados
+              com qualidade de fábrica — uma história de família construída no Rio de Janeiro,
+              com dedicação, inovação e compromisso em cada peça entregue.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Mission */}
+      {/* Mission + Foto familiar */}
       <section className="section-padding bg-background">
         <div className="container-custom">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
+              <span className="inline-block text-xs uppercase tracking-wider font-semibold text-secondary mb-3">
+                Nossa história
+              </span>
               <h2 className="text-3xl font-bold text-foreground mb-6">
-                Nossa Missão
+                Uma confecção feita de gente, para gente
               </h2>
               <p className="text-muted-foreground mb-4">
-                Transformar ideias em produtos de qualidade, oferecendo soluções 
-                completas em personalizados e uniformes que fortalecem a identidade 
-                visual de empresas, eventos e equipes.
+                A Barreto's nasceu com a missão de transformar ideias em produtos de
+                qualidade — oferecendo soluções completas em personalizados e uniformes
+                que fortalecem a identidade visual de empresas, escolas, eventos e equipes.
+              </p>
+              <p className="text-muted-foreground mb-4">
+                Somos um negócio de família. Da escolha do tecido à finalização da estampa,
+                tudo passa pelas mãos de quem conhece o ofício e se orgulha dele. Essa é a
+                nossa diferença: tratamos cada pedido como se fosse para a nossa própria casa.
               </p>
               <p className="text-muted-foreground mb-6">
-                Combinamos tecnologia de ponta, profissionais especializados e 
-                atendimento consultivo para entregar exatamente o que nossos clientes 
-                precisam, sempre com o melhor custo-benefício.
+                Combinamos tecnologia de ponta (DTF, sublimação, silk, bordado) com
+                atendimento consultivo para entregar exatamente o que o cliente precisa —
+                sempre com o melhor custo-benefício e prazo de 5 dias úteis.
               </p>
               <Button variant="cta" onClick={handleWhatsAppClick} className="gap-2">
                 <Phone className="h-5 w-5" />
                 Fale conosco
               </Button>
             </div>
-            <div className="aspect-video rounded-2xl bg-muted overflow-hidden">
+            <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-xl ring-1 ring-border bg-muted">
               <img
-                src="/placeholder.svg"
-                alt="Fábrica Barretos"
+                src="/about/familia-barretos.jpg"
+                alt="Família Barreto's — tradição de 30 anos em confecção"
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
             </div>
           </div>
@@ -114,9 +122,13 @@ export default function Sobre() {
       {/* Values */}
       <section className="section-padding bg-muted/50">
         <div className="container-custom">
-          <h2 className="text-3xl font-bold text-foreground mb-12 text-center">
-            Nossos Valores
+          <h2 className="text-3xl font-bold text-foreground mb-4 text-center">
+            Por que a Barreto's?
           </h2>
+          <p className="text-center text-muted-foreground max-w-2xl mx-auto mb-12">
+            Mais de três décadas atendendo desde o primeiro pedido de 1 peça até produções
+            em escala para grandes marcas e instituições.
+          </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {values.map((value) => (
               <div key={value.title} className="card-elevated p-6">
@@ -135,13 +147,12 @@ export default function Sobre() {
       <section className="section-padding bg-background">
         <div className="container-custom">
           <h2 className="text-3xl font-bold text-foreground mb-12 text-center">
-            Nossa Trajetória
+            Nossa trajetória
           </h2>
           <div className="max-w-3xl mx-auto">
             <div className="relative">
-              {/* Line */}
               <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-0.5 bg-border md:-translate-x-1/2" />
-              
+
               {timeline.map((item, index) => (
                 <div
                   key={item.year}
@@ -149,10 +160,8 @@ export default function Sobre() {
                     index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
                   }`}
                 >
-                  {/* Dot */}
                   <div className="absolute left-4 md:left-1/2 w-4 h-4 rounded-full bg-secondary border-4 border-background md:-translate-x-1/2 z-10" />
-                  
-                  {/* Content */}
+
                   <div
                     className={`ml-12 md:ml-0 md:w-1/2 ${
                       index % 2 === 0 ? "md:pr-12 md:text-right" : "md:pl-12"
@@ -177,7 +186,7 @@ export default function Sobre() {
             Faça parte da nossa história
           </h2>
           <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-            Junte-se aos milhares de clientes satisfeitos. Vamos transformar seu projeto em realidade.
+            Junte-se aos clientes que já confiam na Barreto's. Vamos transformar seu projeto em realidade.
           </p>
           <Button variant="hero" size="lg" onClick={handleWhatsAppClick} className="gap-2">
             <Phone className="h-5 w-5" />

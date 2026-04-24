@@ -5,14 +5,45 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { uploadOrderToDrive, isDriveEnabled } from "./drive.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "..");
 const ORDERS_DIR = path.join(ROOT_DIR, "backend", "orders");
-const PORT = Number(process.env.ORDER_API_PORT || 8787);
+const PORT = Number(process.env.PORT || process.env.ORDER_API_PORT || 8787);
 
 const app = express();
+
+// CORS — libera as origens do site (produção e localhost).
+// Configure ALLOWED_ORIGINS no .env como lista separada por vírgula, ex:
+// ALLOWED_ORIGINS=https://barretosconfeccao.com.br,https://www.barretosconfeccao.com.br
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://barretosconfeccao.com.br",
+  "https://www.barretosconfeccao.com.br",
+  "http://localhost:5173",
+  "http://localhost:8080",
+];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const allowedOrigins = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : DEFAULT_ALLOWED_ORIGINS;
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(express.json({ limit: "80mb" }));
 
 const round = (value) => Math.round(Number(value || 0) * 100) / 100;
@@ -277,7 +308,7 @@ const createZipFromFolder = (sourceFolder, zipOutputPath) =>
   });
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "orders-api" });
+  res.json({ ok: true, service: "orders-api", drive: isDriveEnabled() });
 });
 
 app.post("/api/orders", async (req, res) => {
@@ -362,10 +393,19 @@ app.post("/api/orders", async (req, res) => {
     await createOrderPdf({ payload: normalizedPayload, outputPath: pdfPath });
     await createZipFromFolder(orderDir, zipPath);
 
+    // Upload para Google Drive (opcional — ativado via variáveis de ambiente)
+    const driveResult = await uploadOrderToDrive({ orderCode, orderDir, zipPath });
+
+    const driveSummary = driveResult.uploaded
+      ? ` Enviado também ao Google Drive (pasta ${orderCode}).`
+      : driveResult.error
+        ? ` [AVISO] Falha no upload para o Drive: ${driveResult.error}`
+        : "";
+
     res.json({
       ok: true,
       orderId: orderCode,
-      message: "Pedido salvo no backend local com pacote técnico (PDF + ZIP).",
+      message: `Pedido salvo com pacote técnico (PDF + ZIP).${driveSummary}`,
       storage: {
         type: "local",
         orderDir,
@@ -376,6 +416,7 @@ app.post("/api/orders", async (req, res) => {
         previews: savedPreviews,
         artworks: savedArtworks,
       },
+      drive: driveResult,
     });
   } catch (error) {
     console.error("POST /api/orders error:", error);
@@ -387,6 +428,6 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`[orders-api] running at http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`[orders-api] running at port ${PORT}`);
 });

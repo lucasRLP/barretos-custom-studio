@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import { Button } from "@/components/ui/button";
-import { WHATSAPP_NUMBER, trackWhatsAppClick } from "@/lib/constants";
+import { WHATSAPP_NUMBER, trackWhatsAppClick, STOCK_COLORS, CUSTOM_COLOR_MIN_QTY } from "@/lib/constants";
 import { getProductImage } from "@/lib/productImages";
 import {
   ChevronLeft,
@@ -168,6 +168,7 @@ const ORDER_API_URL = String(
 ).trim();
 const ORDER_API_HEALTH_URL = ORDER_API_URL ? ORDER_API_URL.replace(/\/orders\/?$/, "/health") : "";
 
+// Preços de referência (a partir de, por peça, 1 unidade) — confirme no orçamento final
 const PRODUCTS: ProductOption[] = [
   {
     id: "tshirt",
@@ -189,7 +190,7 @@ const PRODUCTS: ProductOption[] = [
   },
   {
     id: "bone",
-    name: "Bone",
+    name: "Boné",
     subtitle: "Alta visibilidade para marca.",
     unitPrice: 39.9,
     sizes: ["UN"],
@@ -199,7 +200,7 @@ const PRODUCTS: ProductOption[] = [
   {
     id: "ecobag",
     name: "Ecobag",
-    subtitle: "Sustentavel e com boa area de estampa.",
+    subtitle: "Sustentável e com boa área de estampa.",
     unitPrice: 34.9,
     sizes: ["UN"],
     sides: ["front", "back"],
@@ -1199,6 +1200,11 @@ export function PersonalizeApp() {
     setSuccessMessage("");
     setBackendMessage("");
 
+    // Pré-abre janela do WhatsApp AGORA (dentro do clique) para escapar do popup blocker.
+    // A URL real é setada depois que tivermos o código do pedido.
+    const shouldOpenWhatsAppNow = !hasOrderApi || sendViaWhatsApp;
+    const whatsappWindow = shouldOpenWhatsAppNow ? window.open("about:blank", "_blank") : null;
+
     const localOrderCode = generateOrderCode();
     let apiResult: OrderApiResult = { ok: false, skipped: true };
     const payload = buildOrderPayload(localOrderCode);
@@ -1228,12 +1234,16 @@ export function PersonalizeApp() {
 
     if (shouldOpenWhatsApp) {
       const message = buildWhatsAppMessage(finalOrderCode);
+      const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
       trackWhatsAppClick(selectedProduct.name, "Personalize", "order-submit");
-      window.open(
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
-        "_blank",
-        "noopener,noreferrer",
-      );
+
+      if (whatsappWindow && !whatsappWindow.closed) {
+        // Usa a janela pré-aberta (não é bloqueada por popup blocker)
+        whatsappWindow.location.href = whatsappUrl;
+      } else {
+        // Fallback: tenta abrir agora mesmo
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      }
 
       if (apiResult.ok) {
         setSuccessMessage("Pedido salvo e enviado no WhatsApp com sucesso.");
@@ -1247,7 +1257,12 @@ export function PersonalizeApp() {
         setSuccessMessage("Pedido enviado para o WhatsApp com sucesso.");
       }
     } else if (apiResult.ok) {
-      setSuccessMessage(`Pedido salvo no backend com sucesso. Codigo: ${finalOrderCode}.`);
+      setSuccessMessage(`Pedido salvo com sucesso. Código: ${finalOrderCode}.`);
+    }
+
+    // Fecha janela pré-aberta que não foi usada
+    if (whatsappWindow && !shouldOpenWhatsApp && !whatsappWindow.closed) {
+      whatsappWindow.close();
     }
 
     setIsSubmitting(false);
@@ -1401,11 +1416,22 @@ export function PersonalizeApp() {
 
         {step === "customize" && selectedProduct && (
           <section className="space-y-4">
-            <div>
-              <h3 className="text-xl font-bold text-foreground">Personalizar</h3>
-              <p className="text-sm text-muted-foreground">
-                Agora ajuste cor, logo, texto e posicao da estampa antes de ir para seus dados.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-xl font-bold text-foreground">Personalizar</h3>
+                <p className="text-sm text-muted-foreground">
+                  Agora ajuste cor, logo, texto e posicao da estampa antes de ir para seus dados.
+                </p>
+              </div>
+              <Button
+                variant="cta"
+                onClick={goNext}
+                disabled={isSubmitting || !canProceedFromStep(step)}
+                className="gap-2 flex-shrink-0 w-full sm:w-auto"
+              >
+                Próximo
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
 
             <div className="grid xl:grid-cols-[330px_1fr] gap-4">
@@ -1449,14 +1475,50 @@ export function PersonalizeApp() {
                   </select>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground">Cor do produto</label>
-                  <input
-                    type="color"
-                    value={productColor}
-                    onChange={(event) => setProductColor(event.target.value)}
-                    className="w-full h-10 rounded-lg border border-border bg-background p-1"
-                  />
+                  <div className="grid grid-cols-6 gap-2">
+                    {STOCK_COLORS.map((c) => {
+                      const active = productColor.toLowerCase() === c.hex.toLowerCase();
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setProductColor(c.hex)}
+                          title={c.name}
+                          aria-label={c.name}
+                          className={`h-9 w-full rounded-md border-2 transition-all ${
+                            active ? "border-secondary ring-2 ring-secondary/30 scale-105" : "border-border hover:border-muted-foreground"
+                          }`}
+                          style={{ backgroundColor: c.hex }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 flex items-center gap-2 h-9 rounded-md border border-dashed border-border px-2 text-xs cursor-pointer hover:bg-muted/40">
+                      <span
+                        className="h-5 w-5 rounded border border-border flex-shrink-0"
+                        style={{ backgroundColor: productColor }}
+                      />
+                      <span className="truncate">
+                        {STOCK_COLORS.some((c) => c.hex.toLowerCase() === productColor.toLowerCase())
+                          ? "Outra cor (personalizada)"
+                          : `Cor personalizada • ${productColor.toUpperCase()}`}
+                      </span>
+                      <input
+                        type="color"
+                        value={productColor}
+                        onChange={(event) => setProductColor(event.target.value)}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                  {!STOCK_COLORS.some((c) => c.hex.toLowerCase() === productColor.toLowerCase()) && (
+                    <p className="text-[11px] leading-snug rounded-md bg-brand-yellow/15 border border-brand-yellow/40 text-foreground px-2 py-1.5">
+                      Cores fora da paleta de pronta-entrega exigem pedido mínimo de {CUSTOM_COLOR_MIN_QTY} peças (tingimento sob medida).
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -1551,19 +1613,7 @@ export function PersonalizeApp() {
                 </p>
               </aside>
 
-              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
-                <div className="flex justify-end">
-                  <Button
-                    variant="cta"
-                    onClick={goNext}
-                    disabled={isSubmitting || !canProceedFromStep(step)}
-                    className="gap-2"
-                  >
-                    Proximo
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full border border-border px-3 py-1 bg-background">{selectedProduct.name}</span>
                   <span className="rounded-full border border-border px-3 py-1 bg-background">Vista: {SIDE_LABEL[side]}</span>
@@ -1732,7 +1782,7 @@ export function PersonalizeApp() {
             <div>
               <h3 className="text-xl font-bold text-foreground">Seus dados</h3>
               <p className="text-sm text-muted-foreground">
-                Ultima etapa: confirme seus dados para salvar no backend e/ou enviar pelo WhatsApp.
+                Última etapa: preencha seus dados para finalizarmos o pedido e entrarmos em contato.
               </p>
             </div>
 
@@ -1801,27 +1851,6 @@ export function PersonalizeApp() {
                   </label>
                 </div>
 
-                <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-foreground">
-                    Integracao backend: {hasOrderApi ? `ativa (${ORDER_API_URL})` : "nao configurada"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {hasOrderApi
-                      ? "Os pedidos sao enviados via POST com codigo unico, areas X/Y e arquivos de arte/previews. Para ambiente local, rode `npm run dev:api` (ou `npm run dev:full`)."
-                      : "Backend externo nao configurado para este ambiente. O pedido segue somente via WhatsApp."}
-                  </p>
-                  {hasOrderApi && (
-                    <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={sendViaWhatsApp}
-                        onChange={(event) => setSendViaWhatsApp(event.target.checked)}
-                      />
-                      Enviar tambem no WhatsApp apos salvar no backend
-                    </label>
-                  )}
-                </div>
-
                 {backendMessage && <p className="mt-3 text-sm font-semibold text-secondary">{backendMessage}</p>}
                 {formError && <p className="mt-3 text-sm font-semibold text-destructive">{formError}</p>}
                 {successMessage && <p className="mt-3 text-sm font-semibold text-green-700">{successMessage}</p>}
@@ -1854,14 +1883,16 @@ export function PersonalizeApp() {
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Preco unitario</span>
+                  <span className="text-muted-foreground">Preço a partir de</span>
                   <span className="font-semibold">{money(unitPrice)}</span>
                 </div>
                 <div className="flex justify-between font-semibold border-t border-border pt-2">
-                  <span>Total estimado + frete</span>
+                  <span>Estimativa + frete</span>
                   <span className="text-secondary">{money(totalPrice)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Frete calculado separadamente.</p>
+                <p className="text-xs text-muted-foreground">
+                  Valores de referência. Orçamento final confirmado pela equipe conforme técnica, arte e quantidade. Frete cotado à parte.
+                </p>
               </aside>
             </div>
           </section>

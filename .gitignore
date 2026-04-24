@@ -15,6 +15,11 @@ backend/orders
 .env.*
 *.local
 
+# Chaves de serviço Google Drive (nunca commitar)
+*service-account*.json
+*drive-key*.json
+skilled-circle-*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

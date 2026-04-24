@@ -82,17 +82,17 @@ export function CategoryCard({
         </div>
 
         {/* Actions */}
-        <div className="mt-auto flex flex-col sm:flex-row gap-2">
+        <div className="mt-auto flex flex-col gap-2">
           <Button
             variant="cta"
             size="sm"
-            className="flex-1 gap-2"
+            className="w-full gap-2 whitespace-nowrap"
             onClick={handleWhatsAppClick}
           >
             <Phone className="h-4 w-4" />
             Solicitar orçamento
           </Button>
-          <Button variant="outline" size="sm" asChild className="flex-1 gap-2">
+          <Button variant="outline" size="sm" asChild className="w-full gap-2 whitespace-nowrap">
             <Link to={`/produtos/${id}`}>
               Ver detalhes
               <ArrowRight className="h-4 w-4" />
