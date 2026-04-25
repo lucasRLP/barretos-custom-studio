@@ -1239,9 +1239,7 @@ export function PersonalizeApp() {
       const finalOrderCode = apiResult.orderId || payload.orderCode;
 
       if (apiResult.ok) {
-        setBackendMessage(
-          `${apiResult.message || "Pedido salvo no backend."} Codigo: ${finalOrderCode}.`,
-        );
+        setBackendMessage("Pedido enviado com sucesso.");
       } else {
         setFormError(apiResult.error || "Nao foi possivel salvar no backend.");
         backupDownloaded = downloadOrderBackup(payload, finalOrderCode);
@@ -1641,9 +1639,6 @@ export function PersonalizeApp() {
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full border border-border px-3 py-1 bg-background">{selectedProduct.name}</span>
                   <span className="rounded-full border border-border px-3 py-1 bg-background">Vista: {SIDE_LABEL[side]}</span>
-                  <span className="rounded-full border border-border px-3 py-1 bg-background">
-                    Area: {printArea.w} x {printArea.h}
-                  </span>
                 </div>
 
                 <div ref={stageContainerRef} className="rounded-xl border border-border bg-background overflow-hidden">
