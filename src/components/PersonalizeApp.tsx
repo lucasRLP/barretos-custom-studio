@@ -673,11 +673,16 @@ export function PersonalizeApp() {
 
   const stageRef = useRef<unknown>(null);
   const trRef = useRef<unknown>(null);
-  const stageContainerRef = useRef<HTMLDivElement | null>(null);
   const [stageScale, setStageScale] = useState(1);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  useEffect(() => {
-    const el = stageContainerRef.current;
+  // callback ref: mede o container assim que ele monta (o canvas só renderiza
+  // quando o usuário entra na etapa de personalizar)
+  const stageContainerRef = (el: HTMLDivElement | null) => {
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+      resizeObserverRef.current = null;
+    }
     if (!el) return;
     const compute = () => {
       const available = el.clientWidth;
@@ -688,8 +693,8 @@ export function PersonalizeApp() {
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    resizeObserverRef.current = ro;
+  };
 
   const selectedProduct = useMemo(
     () => PRODUCTS.find((product) => product.id === selectedProductId) ?? null,
