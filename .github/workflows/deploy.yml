@@ -33,8 +33,9 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASS }}
           local-dir: ./dist/
-          server-dir: /public_html/
+          server-dir: /domains/barretosconfeccao.com.br/public_html/
           exclude: |
             **/.private/**
             **/.htaccess
             **/.htaccess.bk
+            **/app/**
