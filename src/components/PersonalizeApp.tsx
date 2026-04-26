@@ -858,7 +858,8 @@ export function PersonalizeApp() {
     setSuccessMessage("");
     setBackendMessage("");
     setSendViaWhatsApp(true);
-    setStep((current) => (current === "product" ? current : "details"));
+    // Ao selecionar/trocar produto, avança automaticamente para detalhes
+    setStep("details");
   }, [selectedProduct]);
 
   useEffect(() => {
@@ -1340,7 +1341,10 @@ export function PersonalizeApp() {
                   <button
                     key={product.id}
                     type="button"
-                    onClick={() => setSelectedProductId(product.id)}
+                    onClick={() => {
+                      setSelectedProductId(product.id);
+                      setStep("details");
+                    }}
                     className={`rounded-xl border p-3 text-left transition-all ${
                       selected
                         ? "border-secondary bg-secondary/10 ring-2 ring-secondary/20"
