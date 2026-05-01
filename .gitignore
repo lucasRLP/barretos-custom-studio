@@ -20,6 +20,10 @@ backend/orders
 *drive-key*.json
 skilled-circle-*.json
 
+# Helpers de deploy local (uploads via SCP)
+htaccess-prod
+htaccess-app
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
