@@ -26,16 +26,14 @@ jobs:
           VITE_ORDER_API_URL: https://barretos-custom-studio-production.up.railway.app/api/orders
         run: npm run build
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via SCP (upload only, no deletes)
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USER }}
-          password: ${{ secrets.FTP_PASS }}
-          local-dir: ./dist/
-          server-dir: /domains/barretosconfeccao.com.br/public_html/
-          exclude: |
-            **/.private/**
-            **/.htaccess
-            **/.htaccess.bk
-            **/app/**
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          source: "dist/*"
+          target: "/home/u694896384/domains/barretosconfeccao.com.br/public_html/"
+          strip_components: 1
+          overwrite: true
