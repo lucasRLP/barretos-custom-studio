@@ -37,3 +37,21 @@ jobs:
           target: "/home/u694896384/domains/barretosconfeccao.com.br/public_html/"
           strip_components: 1
           overwrite: true
+
+      - name: Mirror to subdomain app/
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASS }}
+          script: |
+            set -e
+            ROOT=/home/u694896384/domains/barretosconfeccao.com.br/public_html
+            cp -f $ROOT/index.html $ROOT/app/index.html
+            cp -rf $ROOT/assets/. $ROOT/app/assets/
+            cp -f $ROOT/favicon.png $ROOT/app/favicon.png 2>/dev/null || true
+            cp -f $ROOT/robots.txt $ROOT/app/robots.txt 2>/dev/null || true
+            cp -f $ROOT/sitemap.xml $ROOT/app/sitemap.xml 2>/dev/null || true
+            cp -f $ROOT/placeholder.svg $ROOT/app/placeholder.svg 2>/dev/null || true
+            echo "Mirror to app/ done"
