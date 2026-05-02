@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { PersonalizeApp } from "@/components/PersonalizeApp";
 import { generateWhatsAppLink, trackWhatsAppClick } from "@/lib/constants";
+import { trackSelectPersonalizer } from "@/lib/analytics";
 import {
   ArrowRight,
   ClipboardList,
@@ -36,6 +38,25 @@ const steps = [
 ];
 
 export default function Personalize() {
+  useEffect(() => {
+    // Origem aproximada: referrer interno (de qual página o usuário veio)
+    const ref = typeof document !== "undefined" ? document.referrer : "";
+    let source = "direct";
+    try {
+      if (ref) {
+        const url = new URL(ref);
+        if (url.hostname === window.location.hostname) {
+          source = url.pathname || "direct";
+        } else {
+          source = "external";
+        }
+      }
+    } catch {
+      source = "unknown";
+    }
+    trackSelectPersonalizer(source);
+  }, []);
+
   const handleWhatsAppClick = () => {
     trackWhatsAppClick("Personalizador Online", "Personalize", "page-cta");
     window.open(

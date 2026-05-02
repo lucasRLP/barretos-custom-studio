@@ -410,20 +410,25 @@ Origem: ${pageName} - ${position}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
 }
 
-// Função para tracking de eventos
+// Função para tracking de eventos (envia pro GTM via dataLayer)
 export function trackWhatsAppClick(
   category: string,
   pageName: string,
   position: string
 ): void {
-  if (typeof window !== "undefined" && (window as any).gtag) {
-    (window as any).gtag("event", "whatsapp_click", {
-      category,
-      page_name: pageName,
-      position,
-    });
-  }
+  if (typeof window === "undefined") return;
 
-  // eslint-disable-next-line no-console
-  console.log("WhatsApp Click:", { category, pageName, position });
+  const w = window as Window & { dataLayer?: Record<string, unknown>[] };
+  w.dataLayer = w.dataLayer || [];
+  w.dataLayer.push({
+    event: "whatsapp_click",
+    whatsapp_category: category,
+    page_name: pageName,
+    position,
+  });
+
+  if (import.meta.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.log("[whatsapp_click]", { category, pageName, position });
+  }
 }

@@ -3,6 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import { Button } from "@/components/ui/button";
 import { WHATSAPP_NUMBER, trackWhatsAppClick, STOCK_COLORS, CUSTOM_COLOR_MIN_QTY } from "@/lib/constants";
+import {
+  trackViewItem,
+  trackBeginCustomize,
+  trackBeginCheckout,
+  trackGenerateLead,
+  trackLeadError,
+  isProductCategory,
+} from "@/lib/analytics";
 import { getProductImage } from "@/lib/productImages";
 import {
   ChevronLeft,
@@ -829,7 +837,16 @@ export function PersonalizeApp() {
     }
 
     const next = STEP_ORDER[currentStepIndex + 1];
-    if (next) setStep(next.id);
+    if (next) {
+      setStep(next.id);
+      if (selectedProductId && isProductCategory(selectedProductId)) {
+        if (next.id === "customize") {
+          trackBeginCustomize(selectedProductId);
+        } else if (next.id === "contact") {
+          trackBeginCheckout(selectedProductId, totalQty);
+        }
+      }
+    }
   };
 
   const goBack = () => {
@@ -1241,8 +1258,20 @@ export function PersonalizeApp() {
 
       if (apiResult.ok) {
         setBackendMessage("Pedido enviado com sucesso.");
+        if (selectedProductId && isProductCategory(selectedProductId)) {
+          trackGenerateLead({
+            category: selectedProductId,
+            quantity: totalQty,
+            email: customer.email || undefined,
+            phone: customer.whatsapp || undefined,
+            name: customer.name || undefined,
+          });
+        }
       } else {
         setFormError(apiResult.error || "Nao foi possivel salvar no backend.");
+        if (selectedProductId && isProductCategory(selectedProductId)) {
+          trackLeadError(selectedProductId, apiResult.error || "backend_failure");
+        }
         backupDownloaded = downloadOrderBackup(payload, finalOrderCode);
         if (backupDownloaded) {
           setBackendMessage(
@@ -1344,6 +1373,9 @@ export function PersonalizeApp() {
                     onClick={() => {
                       setSelectedProductId(product.id);
                       setStep("details");
+                      if (isProductCategory(product.id)) {
+                        trackViewItem(product.id);
+                      }
                     }}
                     className={`rounded-xl border p-3 text-left transition-all ${
                       selected
